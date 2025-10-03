@@ -1,15 +1,22 @@
-
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta http-equiv="Content-Security-Policy" content="img-src https: data:; style-src 'unsafe-inline' {{cspSource}};">
-  <link href="{{styleSidebarUri}}" rel="stylesheet">
-</head>
-<body>
-  <main>
-    {{itemsHtml}}
-  </main>
-  <script src="{{scriptUri}}"></script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="img-src https: data:; style-src 'unsafe-inline' {{cspSource}};">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="{{styleSidebarUri}}" rel="stylesheet">
+    <title>Customize VS Code Appearance</title>
+  </head>
+  <body>
+    <main>
+      <nav aria-label="Configuration target" class="button-group">
+        <button id="btn-global" type="button" class="config-btn" aria-pressed="false">Global</button>
+        <button id="btn-workspace" type="button" class="config-btn" aria-pressed="false">Workspace</button>
+      </nav>
+      <section aria-label="Color Customizations" class="element-list">
+        {{itemsHtml}}
+      </section>
+    </main>
+    <script src="{{scriptUri}}"></script>
+  </body>
 </html>

@@ -1,19 +1,38 @@
-
 import * as vscode from 'vscode';
 
 const HIGHLIGHT_COLOR = '#9a9a9aff';
 const CONFIG_KEY = 'workbench.colorCustomizations';
 
 type ColorsMap = Record<string, string | undefined>;
+type ConfigTarget = 'Global' | 'Workspace';
 
 export class SettingsManager {
   private static tempHighlights: Record<string, string> = {};
   private static pendingWrite: NodeJS.Timeout | null = null;
   private static lastWritePromise: Promise<void> = Promise.resolve();
+  private static configTarget: ConfigTarget = 'Global';
   public static baseColors: ColorsMap = {};
 
   /**
-   * Loads the current base colors from VS Code configuration.
+   * Maps a string config target to the corresponding VS Code enum.
+   */
+  public static toVscodeConfigTarget(target: ConfigTarget): vscode.ConfigurationTarget {
+    return target === 'Workspace' ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
+  }
+
+  /**
+   * Sets the configuration target for updates.
+   */
+  public static setConfigTarget(target: ConfigTarget): void {
+    this.configTarget = target;
+  }
+
+  public static getConfigTarget(): ConfigTarget {
+    return this.configTarget;
+  }
+
+  /**
+   * Loads the current base colors from the VS Code configuration.
    */
   public static async loadBaseColors(): Promise<void> {
     const cfg = vscode.workspace.getConfiguration();
@@ -31,7 +50,7 @@ export class SettingsManager {
   }
 
   /**
-   * Removes temporary highlight when mouse leaves.
+   * Removes the temporary highlight when the mouse leaves.
    */
   public static async onLeave(key: string): Promise<void> {
     if (!this.tempHighlights[key]) return;
@@ -55,26 +74,23 @@ export class SettingsManager {
    * Applies the effective color customizations to VS Code.
    */
   public static async applyEffectiveColors(): Promise<void> {
-    if (this.pendingWrite) {
-      clearTimeout(this.pendingWrite);
-    }
+    if (this.pendingWrite) clearTimeout(this.pendingWrite);
     this.pendingWrite = setTimeout(() => {
       this.pendingWrite = null;
       const config = vscode.workspace.getConfiguration();
       const currentSettings = config.get<Record<string, string>>(CONFIG_KEY) || {};
-      const effective: Record<string, string | undefined> = { ...currentSettings };
+      const effective: ColorsMap = { ...currentSettings };
 
       // Apply persistent colors
-      for (const k of Object.keys(this.baseColors)) {
-        const v = this.baseColors[k];
+      Object.entries(this.baseColors).forEach(([k, v]) => {
         if (v === undefined) delete effective[k];
         else effective[k] = v;
-      }
+      });
 
       // Apply temporary highlights
-      for (const k of Object.keys(this.tempHighlights)) {
-        effective[k] = this.tempHighlights[k];
-      }
+      Object.entries(this.tempHighlights).forEach(([k, v]) => {
+        effective[k] = v;
+      });
 
       // Clean undefined values
       const cleaned: Record<string, string> = {};
@@ -83,9 +99,7 @@ export class SettingsManager {
       });
 
       this.lastWritePromise = this.lastWritePromise
-        .then(() => {
-          config.update(CONFIG_KEY, cleaned, vscode.ConfigurationTarget.Global);
-        })
+        .then(() => config.update(CONFIG_KEY, cleaned, this.toVscodeConfigTarget(this.configTarget)))
         .catch((err) => console.error('Failed to update:', err));
     }, 10);
   }
