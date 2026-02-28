@@ -9,16 +9,19 @@ input[type=number]::-webkit-outer-spin-button {
 body {
   font-family: var(--vscode-font-family, system-ui), var(--vscode-font-family);
   font-size: var(--vscode-font-size, 13px);
-  color: var(--vscode-foreground); /* general foreground ensures visibility in all themes */
+  color: var(--vscode-foreground);
   background-color: var(--vscode-sideBar-background);
   padding: 16px;
   margin: 0;
 }
 
 body.vscode-dark .config-btn,
-body.vscode-light .config-btn,
 body.vscode-high-contrast .config-btn {
   color: var(--vscode-button-foreground);
+}
+
+body.vscode-light .config-btn {
+  color: #1e1e1e;
 }
 
 .button-group {
@@ -44,7 +47,7 @@ body.vscode-high-contrast .config-btn {
 
 .button-group .config-btn.active {
   background-color: var(--vscode-button-hoverBackground);
-  color: var(--vscode-button-foreground);
+  color: #fff;
   font-weight: bold;
 }
 
@@ -77,18 +80,19 @@ body.vscode-high-contrast .config-btn {
 
 .button-group .config-btn:disabled {
   background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-foreground);
+  color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
   cursor: not-allowed;
   opacity: 0.7;
 }
 
-/* reset button specific styling */
+body.vscode-light .button-group .config-btn:disabled {
+  color: #1e1e1e;
+}
 
 .button-group .reset-btn:hover:not(:disabled) {
   background-color: var(--vscode-button-hoverBackground);
 }
 
-/* small reset icon inside element header */
 .reset-element {
   font-size: 1.2em;
   cursor: pointer;

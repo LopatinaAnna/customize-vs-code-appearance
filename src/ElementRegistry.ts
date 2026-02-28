@@ -1,15 +1,4 @@
-export interface ElementSetting {
-  label: string;
-  key: string;
-  type: 'color' | 'number' | 'string';
-  description?: string;
-  options?: string[];
-}
-
-export interface ElementDefinition {
-  label: string;
-  settings: ElementSetting[];
-}
+import { ElementDefinition } from "./interfaces/ElementDefinition";
 
 export const ELEMENTS: ElementDefinition[] = [
   {
@@ -142,13 +131,6 @@ export const ELEMENTS: ElementDefinition[] = [
       { label: 'Gutter Added Background', key: 'minimapGutter.addedBackground', type: 'color' },
       { label: 'Gutter Modified Background', key: 'minimapGutter.modifiedBackground', type: 'color' },
       { label: 'Gutter Deleted Background', key: 'minimapGutter.deletedBackground', type: 'color' },
-    ],
-  },
-  {
-    label: 'Badge',
-    settings: [
-      { label: 'Background', key: 'badge.background', type: 'color' },
-      { label: 'Foreground', key: 'badge.foreground', type: 'color' },
     ],
   },
   {

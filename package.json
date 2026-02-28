@@ -2,7 +2,7 @@
   "name": "customize-vs-code-appearance",
   "displayName": "customize-vs-code-appearance",
   "description": "",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.104.0"
   },
@@ -17,7 +17,7 @@
         {
           "id": "styleCustomizer",
           "title": "Customize VS Code Appearance",
-          "icon": "media/edit.svg"
+          "icon": "media/wand.svg"
         }
       ]
     },
@@ -27,7 +27,7 @@
           "id": "styleCustomizerView",
           "name": "",
           "type": "webview",
-          "icon": "media/edit.svg"
+          "icon": "media/wand.svg"
         }
       ]
     }

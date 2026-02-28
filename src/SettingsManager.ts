@@ -88,66 +88,22 @@ export class SettingsManager {
    * Handles string settings like font family.
    */
   public static async onSetString(key: string, value: string): Promise<void> {
-    if (key === 'editor.fontFamily') {
-      const config = vscode.workspace.getConfiguration('editor');
-      if (value && value.trim()) {
-        await config.update('fontFamily', value.trim(), SettingsManager.toVscodeConfigTarget(SettingsManager.getConfigTarget()));
-      }
-      return;
-    } 
-    
-    if (key === 'workbench.activityBar.location') {
-      const config = vscode.workspace.getConfiguration('workbench');
-      await config.update('activityBar.location', value, SettingsManager.toVscodeConfigTarget(SettingsManager.getConfigTarget()));
-    } 
-    
-    if (key === 'workbench.sideBar.location') {
-      const config = vscode.workspace.getConfiguration('workbench');
-      await config.update('sideBar.location', value, SettingsManager.toVscodeConfigTarget(SettingsManager.getConfigTarget()));
-    } 
-    
-    if (key === 'workbench.panel.defaultLocation') {
-      const config = vscode.workspace.getConfiguration('workbench');
-      await config.update('panel.defaultLocation', value, SettingsManager.toVscodeConfigTarget(SettingsManager.getConfigTarget()));
-    }
-  }
+    const configMap: Record<string, { section: string; setting: string }> = {
+      'editor.fontFamily': { section: 'editor', setting: 'fontFamily' },
+      'workbench.activityBar.location': { section: 'workbench', setting: 'activityBar.location' },
+      'workbench.sideBar.location': { section: 'workbench', setting: 'sideBar.location' },
+      'workbench.panel.defaultLocation': { section: 'workbench', setting: 'panel.defaultLocation' },
+    };
 
-  /**
-   * Remove any settings the extension has written, returning VS Code to defaults.
-   */
-  public static async resetAll(): Promise<void> {
-    console.log('resetAll called for target:', SettingsManager.getConfigTarget());
-    const cfg = vscode.workspace.getConfiguration();
-    // clear colors in both global and workspace
-    try {
-      await cfg.update(CONFIG_KEY, {}, vscode.ConfigurationTarget.Workspace);
-      await cfg.update(CONFIG_KEY, {}, vscode.ConfigurationTarget.Global);
-      console.log('Cleared workbench.colorCustomizations at both levels');
-    } catch (err) {
-      console.error('Failed to clear color customizations:', err);
-    }
+    const config = configMap[key];
+    if (!config) return;
 
-    // clear other settings we may have modified at both levels
-    try {
-      const editorCfg = vscode.workspace.getConfiguration('editor');
-      await editorCfg.update('fontSize', undefined, vscode.ConfigurationTarget.Workspace);
-      await editorCfg.update('fontSize', undefined, vscode.ConfigurationTarget.Global);
-      await editorCfg.update('fontFamily', undefined, vscode.ConfigurationTarget.Workspace);
-      await editorCfg.update('fontFamily', undefined, vscode.ConfigurationTarget.Global);
-      const workbench = vscode.workspace.getConfiguration('workbench');
-      await workbench.update('activityBar.location', undefined, vscode.ConfigurationTarget.Workspace);
-      await workbench.update('activityBar.location', undefined, vscode.ConfigurationTarget.Global);
-      await workbench.update('sideBar.location', undefined, vscode.ConfigurationTarget.Workspace);
-      await workbench.update('sideBar.location', undefined, vscode.ConfigurationTarget.Global);
-      await workbench.update('panel.defaultLocation', undefined, vscode.ConfigurationTarget.Workspace);
-      await workbench.update('panel.defaultLocation', undefined, vscode.ConfigurationTarget.Global);
-      console.log('Cleared editor and workbench settings at both levels');
-    } catch (err) {
-      console.error('Failed to reset other settings:', err);
+    const cfg = vscode.workspace.getConfiguration(config.section);
+    const updateValue = key === 'editor.fontFamily' && value ? value.trim() : value;
+    
+    if (updateValue || key !== 'editor.fontFamily') {
+      await cfg.update(config.setting, updateValue, SettingsManager.toVscodeConfigTarget(SettingsManager.getConfigTarget()));
     }
-    // clear internal caches
-    this.baseColors = {};
-    this.tempHighlights = {};
   }
 
   /**
@@ -155,10 +111,8 @@ export class SettingsManager {
    */
   public static async resetGroup(keys: string[]): Promise<void> {
     if (!keys || keys.length === 0) {
-      console.warn('resetGroup called with no keys');
       return;
     }
-    console.log('resetGroup called with keys:', keys);
 
     // remove keys from workspace/global individually
     const cfg = vscode.workspace.getConfiguration();
@@ -166,7 +120,6 @@ export class SettingsManager {
     const newWorkspace: Record<string,string> = { ...(inspect?.workspaceValue || {}) };
     const newGlobal: Record<string,string> = { ...(inspect?.globalValue || {}) };
     keys.forEach(k => {
-      console.log('Deleting key from both levels:', k);
       delete newWorkspace[k];
       delete newGlobal[k];
       delete this.baseColors[k];
@@ -175,7 +128,6 @@ export class SettingsManager {
     try {
       await cfg.update(CONFIG_KEY, newWorkspace, vscode.ConfigurationTarget.Workspace);
       await cfg.update(CONFIG_KEY, newGlobal, vscode.ConfigurationTarget.Global);
-      console.log('Successfully updated configs after group reset');
     } catch (err) {
       console.error('Failed to update color customizations after group reset:', err);
     }
@@ -185,8 +137,7 @@ export class SettingsManager {
    * Reset the given configuration target only.
    */
   public static async resetScope(scope: 'Global' | 'Workspace'): Promise<void> {
-    console.log('resetScope called for', scope);
-    const target = scope === 'Workspace' ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
+    const target = this.toVscodeConfigTarget(scope);
     const cfg = vscode.workspace.getConfiguration();
     try {
       await cfg.update(CONFIG_KEY, {}, target);
@@ -203,10 +154,7 @@ export class SettingsManager {
       await workbench.update('activityBar.location', undefined, target);
       await workbench.update('sideBar.location', undefined, target);
       await workbench.update('panel.defaultLocation', undefined, target);
-      console.log(`Cleared editor/workbench settings at ${scope}`);
-    } catch (err) {
-      console.error(`Failed to reset other settings at ${scope}:`, err);
-    }
+    } catch (err) { }
     // clear caches so reload picks up changes
     this.baseColors = {};
     this.tempHighlights = {};

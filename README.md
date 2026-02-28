@@ -1,71 +1,90 @@
-# customize-vs-code-appearance README
+# VS Code Appearance Customizer
 
-This is the README for your extension "customize-vs-code-appearance". After writing up a brief description, we recommend including the following sections.
+A VS Code extension that provides an intuitive sidebar interface for customizing VS Code's appearance. Customize colors for UI elements, editor settings, and layout preferences with live preview.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- **Visual Color Picker**: Change colors for title bar, activity bar, editor, status bar, and more directly from a user-friendly sidebar
+- **Live Preview**: See color changes instantly as you adjust them with automatic preview highlighting
+- **Dual-Target Configuration**: Apply customizations to either Global (all workspaces) or Workspace (current folder) scope
+- **Per-Element Reset**: Reset individual UI element colors without affecting other customizations
+- **Per-Scope Reset**: Clear all customizations for the selected scope (Global or Workspace)
+- **Theme-Aware UI**: The sidebar adapts to VS Code's current theme (light, dark, or high-contrast) for seamless integration
+- **Extended Customizations**:
+  - Editor font size and font family
+  - Activity bar, sidebar, and panel positioning
+  - Color customizations for multiple UI elements
 
-For example if there is an image subfolder under your extension project workspace:
+## Supported Elements
 
-\!\[feature X\]\(images/feature-x.png\)
+### UI Colors
+- **Title Bar**: Background and foreground colors for active/inactive states
+- **Activity Bar**: Background and status indicator colors
+- **Editor**: Background, line number, and other editor colors
+- **Status Bar**: Background and foreground colors
+- **Sidebar**: Background, foreground, and border colors
+- **Terminal**: Background and foreground colors
+- **Notifications**: Background and foreground colors
+- **Input/Select**: Background, foreground, and border colors
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+### Editor Settings
+- Font family (system-wide or workspace)
+- Font size (system-wide or workspace)
+
+### Layout Settings
+- Activity bar position (side/top/hidden)
+- Sidebar position (left/right)
+- Panel position (bottom/right)
+
+## Usage
+
+1. Open the **Customize Appearance** sidebar from the activity bar
+2. Select your configuration target:
+   - **Global**: Changes apply to all workspaces
+   - **Workspace**: Changes apply only to the current folder (if one is open)
+3. Browse UI element categories and adjust colors using the color picker, input font size or select positioning
+4. Hover over elements to preview changes
+5. Click the **⟳** icon next to an element to reset it to defaults
+6. Click the **⟳** icon next to a scope to reset all settings in that scope
+
+## Configuration
+
+This extension modifies the following VS Code settings:
+- `workbench.colorCustomizations`: All color settings
+- `editor.fontSize`: Editor font size
+- `editor.fontFamily`: Editor font family
+- `workbench.activityBar.location`: Activity bar positioning
+- `workbench.sideBar.location`: Sidebar positioning
+- `workbench.panel.defaultLocation`: Panel positioning
+
+All changes are made through VS Code's native settings system and can be manually edited in `settings.json`.
+
+## Workspace vs Global
+
+- **Global**: Settings stored in `~/.config/Code/user/settings.json` (or Windows/Mac equivalent), apply to all workspaces
+- **Workspace**: Settings stored in `.vscode/settings.json`, apply only to the current workspace
+- The Global button is disabled when a workspace is open to prevent conflicts
+
+## Reset Functionality
+
+- **Element Reset**: Click the **⟳** icon next to any UI element to reset its related settings
+- **Scope Reset**: Click the **⟳** icon next to Global or Workspace to reset all colors in that scope
+- Resets are permanent and immediately applied
+
+## Tips
+
+- Color changes are applied instantly without requiring a VS Code restart
+- You can combine Global and Workspace customizations (Workspace overrides Global for conflicts)
+- Use the preview highlighting feature to see which colors affect which areas of the UI
+- Export your customizations by copying the content of `.vscode/settings.json` (workspace) or `settings.json` (global)
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
-
-## Extension Settings
-
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
+- VS Code 1.60 or later
+- No additional dependencies required
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
-
 ### 1.0.0
 
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+Initial release of VS Code Appearance Customizer with color customization support, live preview, dual-target configuration (Global/Workspace), and reset functionality.
