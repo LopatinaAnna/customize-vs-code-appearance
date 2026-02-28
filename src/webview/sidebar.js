@@ -1,5 +1,6 @@
 (() => {
   const vscode = acquireVsCodeApi();
+  console.log('sidebar.js loaded in webview');
 
   // apply a theme class to <body> (light, dark, high-contrast)
   function setThemeClass(themeClass) {
@@ -20,8 +21,14 @@
   addListeners('.element-header', 'keydown', function(e) {
     if (e.key === 'Enter' || e.key === ' ') handleExpandCollapse(e);
   });
+  // per-element reset buttons
+  addListeners('.reset-element', 'click', handleElementReset);
 
   function handleExpandCollapse(event) {
+    // don't expand/collapse if clicking on reset icon area
+    if (event.target.closest('.reset-element')) {
+      return;
+    }
     const header = event.currentTarget;
     const group = header.closest('.element-group');
     const settings = group.querySelector('.element-settings');
@@ -29,6 +36,34 @@
     const expanded = settings.style.display !== 'none';
     settings.style.display = expanded ? 'none' : 'block';
     icon.innerHTML = expanded ? '&#9654;' : '&#9660;';
+  }
+
+  function handleElementReset(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    console.log('Reset element clicked');
+    const resetIcon = event.currentTarget;
+    const header = resetIcon.closest('.element-header');
+    const group = header.closest('.element-group');
+    const keys = group?.getAttribute('data-keys')?.split(',').filter(k => k.trim()) || [];
+    console.log('Resetting group with keys:', keys);
+    if (keys.length > 0) {
+      console.log('Sending resetGroup message with keys:', keys);
+      vscode.postMessage({ type: 'resetGroup', keys });
+    } else {
+      console.warn('No keys found for group reset');
+    }
+  }
+
+  // scope reset handler
+  function handleScopeReset(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const target = event.currentTarget.getAttribute('data-target');
+    console.log('Scope reset clicked for target', target);
+    if (target === 'Global' || target === 'Workspace') {
+      vscode.postMessage({ type: 'resetScope', target });
+    }
   }
 
   // Hover/leave for group and settings
@@ -101,6 +136,7 @@
   // Config target buttons
   const btnGlobal = document.getElementById('btn-global');
   const btnWorkspace = document.getElementById('btn-workspace');
+  addListeners('.scope-reset', 'click', handleScopeReset);
 
   if (btnGlobal) {
     btnGlobal.addEventListener('click', () => {
@@ -129,10 +165,14 @@
       if (btnGlobal) {
         btnGlobal.disabled = !!msg.available;
         btnGlobal.title = msg.available ? 'Global config is not available in workspace' : '';
+        const icon = document.querySelector('.scope-control .scope-reset[data-target="Global"]');
+        if (icon) icon.classList.toggle('disabled', btnGlobal.disabled);
       }
       if (btnWorkspace) {
         btnWorkspace.disabled = !msg.available;
         btnWorkspace.title = !msg.available ? 'No workspace available' : '';
+        const icon = document.querySelector('.scope-control .scope-reset[data-target="Workspace"]');
+        if (icon) icon.classList.toggle('disabled', btnWorkspace.disabled);
       }
       // Set active button based on config target
       if (msg.configTarget) setActiveConfigButton(msg.configTarget);

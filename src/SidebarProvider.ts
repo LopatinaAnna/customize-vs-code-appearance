@@ -11,7 +11,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     try {
       //console.log(vscode.workspace.getConfiguration());
       for (const [key, value] of Object.entries(vscode.workspace.getConfiguration().inspect('workbench') || {})) {
-        console.log(value);
+        //console.log(value);
       }
       await SettingsManager.loadBaseColors();
       webviewView.webview.options = { enableScripts: true };
@@ -45,7 +45,24 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
       webviewView.webview.onDidReceiveMessage(async (msg) => {
         try {
-          await this.handleWebviewMessage(msg, sendState);
+          if (msg.type === 'resetScope' && (msg.target === 'Global' || msg.target === 'Workspace')) {
+            console.log('ResetScope message received for target:', msg.target);
+            await SettingsManager.resetScope(msg.target);
+            await SettingsManager.loadBaseColors();
+            webviewView.webview.html = await this.getHtml(webviewView.webview, ELEMENTS);
+            sendState();
+            vscode.window.showInformationMessage(`${msg.target} settings reset`);
+          } else if (msg.type === 'resetGroup' && Array.isArray(msg.keys)) {
+            console.log('ResetGroup message received with keys:', msg.keys);
+            await SettingsManager.resetGroup(msg.keys);
+            await SettingsManager.loadBaseColors();
+            webviewView.webview.html = await this.getHtml(webviewView.webview, ELEMENTS);
+            sendState();
+            console.log('Group reset complete, showing notification');
+            vscode.window.showInformationMessage('Group settings reset');
+          } else {
+            await this.handleWebviewMessage(msg, sendState);
+          }
         } catch (err) {
           console.error('Error handling message:', err);
         }
@@ -88,17 +105,20 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
    * Ensures the color value is a valid hex string.
    */
   private sanitizeHex(value?: string): string {
-    if (!value) return '#000000';
-    return /^#([0-9a-fA-F]{6})$/.test(value) ? value : '#000000';
+    if (!value) return ''; // no customization defined
+    return /^#([0-9a-fA-F]{6})$/.test(value) ? value : '';
   }
 
   /**
    * Generates the HTML for the sidebar webview.
    */
   private async getHtml(webview: vscode.Webview, elements: ElementDefinition[]): Promise<string> {
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, 'out', 'webview', 'sidebar.js')
-    );
+    // load script from compiled output if present, otherwise use source file directly
+    let scriptPath = vscode.Uri.joinPath(this.extensionUri, 'out', 'webview', 'sidebar.js');
+    if (!fs.existsSync(scriptPath.fsPath)) {
+      scriptPath = vscode.Uri.joinPath(this.extensionUri, 'src', 'webview', 'sidebar.js');
+    }
+    const scriptUri = webview.asWebviewUri(scriptPath);
     const styleSidebarUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, 'media', 'sidebar.css')
     );
@@ -111,12 +131,16 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             ${this.getInputHtml(setting)}
           </div>`;
       }).join('');
+      const keyList = el.settings.map(s => s.key).join(',');
       return `
-        <div class="element-group" data-group="${idx}">
-          <div class="element-header" tabindex="0" data-group="${idx}">
-            <span>${el.label}</span>
-            <span class="expand-icon">&#9654;</span>
-          </div>
+        <div class="element-group" data-group="${idx}" data-keys="${keyList}">
+          <button class="element-header" tabindex="0" data-group="${idx}">
+            <span class="element-header-title">${el.label}</span>
+            <div class="element-header-icons">
+              <span class="reset-element" title="Reset all the customizations for the ${el.label}">&#x21bb;</span>
+              <span class="expand-icon">&#9654;</span>
+            </div>
+          </button>
           <div class="element-settings" style="display:none;">
             ${settingsHtml}
           </div>

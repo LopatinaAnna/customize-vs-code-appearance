@@ -9,10 +9,16 @@ input[type=number]::-webkit-outer-spin-button {
 body {
   font-family: var(--vscode-font-family, system-ui), var(--vscode-font-family);
   font-size: var(--vscode-font-size, 13px);
-  color: var(--vscode-sideBar-foreground);
+  color: var(--vscode-foreground); /* general foreground ensures visibility in all themes */
   background-color: var(--vscode-sideBar-background);
   padding: 16px;
   margin: 0;
+}
+
+body.vscode-dark .config-btn,
+body.vscode-light .config-btn,
+body.vscode-high-contrast .config-btn {
+  color: var(--vscode-button-foreground);
 }
 
 .button-group {
@@ -37,9 +43,32 @@ body {
 }
 
 .button-group .config-btn.active {
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
+  background-color: var(--vscode-button-hoverBackground);
+  color: var(--vscode-button-foreground);
   font-weight: bold;
+}
+
+.scope-control {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+.scope-reset {
+  font-size: 1.2em;
+  cursor: pointer;
+  color: var(--vscode-list-hoverForeground);
+  margin-left: 8px;
+  padding: 4px;
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+.scope-reset.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.scope-reset:hover {
+  color: var(--vscode-list-focusForeground, var(--vscode-list-hoverForeground));
 }
 
 .button-group .config-btn:hover:not(:disabled) {
@@ -51,6 +80,24 @@ body {
   color: var(--vscode-button-foreground);
   cursor: not-allowed;
   opacity: 0.7;
+}
+
+/* reset button specific styling */
+
+.button-group .reset-btn:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+/* small reset icon inside element header */
+.reset-element {
+  font-size: 1.2em;
+  cursor: pointer;
+  color: var(--vscode-list-hoverForeground);
+  transition: color 0.2s;
+  flex-shrink: 0;
+}
+.reset-element:hover {
+  color: var(--vscode-list-focusForeground, var(--vscode-list-hoverForeground));
 }
 
 .element-list {
@@ -84,20 +131,36 @@ body {
   font-weight: 500;
   color: var(--vscode-sideBar-foreground);
   border: none;
+  background: none;
   outline: none;
   user-select: none;
   transition: color 0.2s;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
 }
 
 .element-header:focus, .element-header:hover {
   color: var(--vscode-list-hoverForeground);
+  background: none;
+}
+
+.element-header-title {
+  flex: 1;
+}
+
+.element-header-icons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
 }
 
 .expand-icon {
   font-size: 1.1em;
-  margin-left: 8px;
   color: var(--vscode-list-hoverForeground);
   transition: transform 0.2s;
+  flex-shrink: 0;
 }
 
 .element-settings {
