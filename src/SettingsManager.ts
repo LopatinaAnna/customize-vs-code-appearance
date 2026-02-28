@@ -71,6 +71,48 @@ export class SettingsManager {
   }
 
   /**
+   * Handles other number settings like font size.
+   */
+  public static async onSetNumber(key: string, value: number): Promise<void> {
+    if (key === 'editor.fontSize') {
+      const fontSize = value && !isNaN(Number(value)) ? Number(value) : undefined;
+      const config = vscode.workspace.getConfiguration('editor');
+      if (fontSize) {
+        await config.update('fontSize', fontSize, SettingsManager.toVscodeConfigTarget(SettingsManager.getConfigTarget()));
+      }
+      return;
+    }
+  }
+
+  /**
+   * Handles string settings like font family.
+   */
+  public static async onSetString(key: string, value: string): Promise<void> {
+    if (key === 'editor.fontFamily') {
+      const config = vscode.workspace.getConfiguration('editor');
+      if (value && value.trim()) {
+        await config.update('fontFamily', value.trim(), SettingsManager.toVscodeConfigTarget(SettingsManager.getConfigTarget()));
+      }
+      return;
+    } 
+    
+    if (key === 'workbench.activityBar.location') {
+      const config = vscode.workspace.getConfiguration('workbench');
+      await config.update('activityBar.location', value, SettingsManager.toVscodeConfigTarget(SettingsManager.getConfigTarget()));
+    } 
+    
+    if (key === 'workbench.sideBar.location') {
+      const config = vscode.workspace.getConfiguration('workbench');
+      await config.update('sideBar.location', value, SettingsManager.toVscodeConfigTarget(SettingsManager.getConfigTarget()));
+    } 
+    
+    if (key === 'workbench.panel.defaultLocation') {
+      const config = vscode.workspace.getConfiguration('workbench');
+      await config.update('panel.defaultLocation', value, SettingsManager.toVscodeConfigTarget(SettingsManager.getConfigTarget()));
+    }
+  }
+
+  /**
    * Applies the effective color customizations to VS Code.
    */
   public static async applyEffectiveColors(): Promise<void> {

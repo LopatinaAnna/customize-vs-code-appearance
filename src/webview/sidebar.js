@@ -6,25 +6,88 @@
     document.querySelectorAll(selector).forEach(el => el.addEventListener(event, handler));
   }
 
-  // Color item hover/leave
-  addListeners('.item', 'mouseenter', handleHover);
-  addListeners('.item', 'mouseleave', handleLeave);
-  addListeners('.picker', 'input', handleColorChange);
 
+  // Expand/collapse element groups
+  addListeners('.element-header', 'click', handleExpandCollapse);
+  addListeners('.element-header', 'keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ' ') handleExpandCollapse(e);
+  });
+
+  function handleExpandCollapse(event) {
+    const header = event.currentTarget;
+    const group = header.closest('.element-group');
+    const settings = group.querySelector('.element-settings');
+    const icon = header.querySelector('.expand-icon');
+    const expanded = settings.style.display !== 'none';
+    settings.style.display = expanded ? 'none' : 'block';
+    icon.innerHTML = expanded ? '&#9654;' : '&#9660;';
+  }
+
+  // Hover/leave for group and settings
+  addListeners('.element-header', 'mouseenter', handleGroupHover);
+  addListeners('.element-header', 'mouseleave', handleGroupLeave);
+  addListeners('.setting-item', 'mouseenter', handleHover);
+  addListeners('.setting-item', 'mouseleave', handleLeave);
+
+    // Handle position select dropdowns
+  addListeners('.position-select', 'change', handlePositionChange);
+
+  function handlePositionChange(event) {
+    const select = event.currentTarget;
+    const key = select.getAttribute('data-key');
+    vscode.postMessage({ type: 'setString', key, value: select.value });
+  }
+
+  function handleGroupHover(event) {
+    // Optionally highlight all settings in the group
+    // Could also highlight the first setting or a representative key
+    // For now, highlight the first setting
+    const group = event.currentTarget.closest('.element-group');
+    const firstSetting = group.querySelector('.setting-item');
+    if (firstSetting) {
+      const key = firstSetting.getAttribute('data-key');
+      vscode.postMessage({ type: 'hover', key });
+    }
+  }
+  function handleGroupLeave(event) {
+    const group = event.currentTarget.closest('.element-group');
+    const firstSetting = group.querySelector('.setting-item');
+    if (firstSetting) {
+      const key = firstSetting.getAttribute('data-key');
+      vscode.postMessage({ type: 'leave', key });
+    }
+  }
   function handleHover(event) {
     const key = event.currentTarget.getAttribute('data-key');
     vscode.postMessage({ type: 'hover', key });
   }
-
   function handleLeave(event) {
     const key = event.currentTarget.getAttribute('data-key');
     vscode.postMessage({ type: 'leave', key });
   }
 
+  // Handle all input types
+  addListeners('.picker', 'input', handleColorChange);
+  addListeners('.picker', 'change', handleColorChange);
+  addListeners('.number-input', 'input', handleNumberChange);
+  addListeners('.string-input', 'input', handleStringChange);
+
   function handleColorChange(event) {
     const input = event.currentTarget;
     const key = input.getAttribute('data-key');
     vscode.postMessage({ type: 'setColor', key, color: input.value });
+  }
+
+  function handleNumberChange(event) {
+    const input = event.currentTarget;
+    const key = input.getAttribute('data-key');
+    vscode.postMessage({ type: 'setNumber', key, value: input.value });
+  }
+
+  function handleStringChange(event) {
+    const input = event.currentTarget;
+    const key = input.getAttribute('data-key');
+    vscode.postMessage({ type: 'setString', key, value: input.value });
   }
 
   // Config target buttons

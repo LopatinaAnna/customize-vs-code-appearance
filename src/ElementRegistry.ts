@@ -1,12 +1,160 @@
+export interface ElementSetting {
+  label: string;
+  key: string;
+  type: 'color' | 'number' | 'string';
+  description?: string;
+  options?: string[];
+}
 
 export interface ElementDefinition {
   label: string;
-  key: string;
+  settings: ElementSetting[];
 }
 
 export const ELEMENTS: ElementDefinition[] = [
-  { label: 'Title Bar', key: 'titleBar.activeBackground' },
-  { label: 'Activity Bar', key: 'activityBar.background' },
-  { label: 'Side Bar', key: 'sideBar.background' },
-  { label: 'Command Center', key: 'commandCenter.background' },
+  {
+    label: 'Title Bar',
+    settings: [
+      { label: 'Active Background', key: 'titleBar.activeBackground', type: 'color' },
+      { label: 'Active Foreground', key: 'titleBar.activeForeground', type: 'color' },
+      { label: 'Inactive Background', key: 'titleBar.inactiveBackground', type: 'color' },
+      { label: 'Inactive Foreground', key: 'titleBar.inactiveForeground', type: 'color' },
+      { label: 'Border', key: 'titleBar.border', type: 'color' },
+    ],
+  },
+  {
+    label: 'Activity Bar',
+    settings: [
+      { label: 'Background', key: 'activityBar.background', type: 'color' },
+      { label: 'Foreground', key: 'activityBar.foreground', type: 'color' },
+      { label: 'Inactive Foreground', key: 'activityBar.inactiveForeground', type: 'color' },
+      { label: 'Border', key: 'activityBar.border', type: 'color' },
+      { label: 'Badge Background', key: 'activityBarBadge.background', type: 'color' },
+      { label: 'Badge Foreground', key: 'activityBarBadge.foreground', type: 'color' },
+      { label: 'Active Border', key: 'activityBar.activeBorder', type: 'color' },
+      { label: 'Active Background', key: 'activityBar.activeBackground', type: 'color' },
+      { label: 'Active Focus Border', key: 'activityBar.activeFocusBorder', type: 'color' },
+      { label: 'Position', key: 'workbench.activityBar.location', type: 'string', options: ['default', 'top', 'bottom', 'hidden'] },
+    ],
+  },
+  {
+    label: 'Side Bar',
+    settings: [
+      { label: 'Background', key: 'sideBar.background', type: 'color' },
+      { label: 'Foreground', key: 'sideBar.foreground', type: 'color' },
+      { label: 'Border', key: 'sideBar.border', type: 'color' },
+      { label: 'Drop Background', key: 'sideBar.dropBackground', type: 'color' },
+      { label: 'Title Foreground', key: 'sideBarTitle.foreground', type: 'color' },
+      { label: 'Section Header Background', key: 'sideBarSectionHeader.background', type: 'color' },
+      { label: 'Section Header Foreground', key: 'sideBarSectionHeader.foreground', type: 'color' },
+      { label: 'Section Header Border', key: 'sideBarSectionHeader.border', type: 'color' },
+      { label: 'Position', key: 'workbench.sideBar.location', type: 'string', options: ['left', 'right'] },
+    ],
+  },
+  {
+    label: 'Command Center',
+    settings: [
+      { label: 'Foreground', key: 'commandCenter.foreground', type: 'color' },
+      { label: 'Active Foreground', key: 'commandCenter.activeForeground', type: 'color' },
+      { label: 'Background', key: 'commandCenter.background', type: 'color' },
+      { label: 'Active Background', key: 'commandCenter.activeBackground', type: 'color' },
+      { label: 'Border', key: 'commandCenter.border', type: 'color' },
+      { label: 'Inactive Foreground', key: 'commandCenter.inactiveForeground', type: 'color' },
+      { label: 'Inactive Border', key: 'commandCenter.inactiveBorder', type: 'color' },
+      { label: 'Active Border', key: 'commandCenter.activeBorder', type: 'color' },
+      { label: 'Debugging Background', key: 'commandCenter.debuggingBackground', type: 'color' },
+    ],
+  },
+  {
+    label: 'Editor',
+    settings: [
+      { label: 'Background', key: 'editor.background', type: 'color' },
+      { label: 'Foreground', key: 'editor.foreground', type: 'color' },
+      { label: 'Font Size', key: 'editor.fontSize', type: 'number', description: 'Editor font size in px' },
+      { label: 'Line Number Foreground', key: 'editorLineNumber.foreground', type: 'color' },
+      { label: 'Line Number Active Foreground', key: 'editorLineNumber.activeForeground', type: 'color' },
+      { label: 'Cursor Foreground', key: 'editorCursor.foreground', type: 'color' },
+      { label: 'Selection Background', key: 'editor.selectionBackground', type: 'color' },
+      { label: 'Selection Foreground', key: 'editor.selectionForeground', type: 'color' },
+      { label: 'Inactive Selection Background', key: 'editor.inactiveSelectionBackground', type: 'color' },
+      { label: 'Word Highlight Background', key: 'editor.wordHighlightBackground', type: 'color' },
+      { label: 'Word Highlight Border', key: 'editor.wordHighlightBorder', type: 'color' },
+      { label: 'Find Match Background', key: 'editor.findMatchBackground', type: 'color' },
+      { label: 'Find Match Border', key: 'editor.findMatchBorder', type: 'color' },
+      { label: 'Hover Highlight Background', key: 'editor.hoverHighlightBackground', type: 'color' },
+      { label: 'Line Highlight Background', key: 'editor.lineHighlightBackground', type: 'color' },
+      { label: 'Line Highlight Border', key: 'editor.lineHighlightBorder', type: 'color' },
+    ],
+  },
+  {
+    label: 'Status Bar',
+    settings: [
+      { label: 'Background', key: 'statusBar.background', type: 'color' },
+      { label: 'Foreground', key: 'statusBar.foreground', type: 'color' },
+      { label: 'Border', key: 'statusBar.border', type: 'color' },
+      { label: 'No Folder Background', key: 'statusBar.noFolderBackground', type: 'color' },
+      { label: 'No Folder Foreground', key: 'statusBar.noFolderForeground', type: 'color' },
+      { label: 'Debugging Background', key: 'statusBar.debuggingBackground', type: 'color' },
+      { label: 'Debugging Foreground', key: 'statusBar.debuggingForeground', type: 'color' },
+      { label: 'Item Active Background', key: 'statusBarItem.activeBackground', type: 'color' },
+      { label: 'Item Hover Background', key: 'statusBarItem.hoverBackground', type: 'color' },
+      { label: 'Item Prominent Background', key: 'statusBarItem.prominentBackground', type: 'color' },
+      { label: 'Item Prominent Foreground', key: 'statusBarItem.prominentForeground', type: 'color' },
+    ],
+  },
+  {
+    label: 'Panel',
+    settings: [
+      { label: 'Background', key: 'panel.background', type: 'color' },
+      { label: 'Foreground', key: 'panel.foreground', type: 'color' },
+      { label: 'Border', key: 'panel.border', type: 'color' },
+      { label: 'Title Active Border', key: 'panelTitle.activeBorder', type: 'color' },
+      { label: 'Title Active Foreground', key: 'panelTitle.activeForeground', type: 'color' },
+      { label: 'Title Inactive Foreground', key: 'panelTitle.inactiveForeground', type: 'color' },
+      { label: 'Drop Border', key: 'panel.dropBorder', type: 'color' },
+      { label: 'Position', key: 'workbench.panel.defaultLocation', type: 'string', options: ['bottom', 'right'] },
+    ],
+  },
+  {
+    label: 'Tabs',
+    settings: [
+      { label: 'Active Background', key: 'tab.activeBackground', type: 'color' },
+      { label: 'Active Foreground', key: 'tab.activeForeground', type: 'color' },
+      { label: 'Inactive Background', key: 'tab.inactiveBackground', type: 'color' },
+      { label: 'Inactive Foreground', key: 'tab.inactiveForeground', type: 'color' },
+      { label: 'Active Border', key: 'tab.activeBorder', type: 'color' },
+      { label: 'Inactive Modified Border', key: 'tab.inactiveModifiedBorder', type: 'color' },
+      { label: 'Active Modified Border', key: 'tab.activeModifiedBorder', type: 'color' },
+      { label: 'Unfocused Active Background', key: 'tab.unfocusedActiveBackground', type: 'color' },
+      { label: 'Unfocused Active Foreground', key: 'tab.unfocusedActiveForeground', type: 'color' },
+      { label: 'Unfocused Inactive Background', key: 'tab.unfocusedInactiveBackground', type: 'color' },
+      { label: 'Unfocused Inactive Foreground', key: 'tab.unfocusedInactiveForeground', type: 'color' },
+    ],
+  },
+  {
+    label: 'Minimap',
+    settings: [
+      { label: 'Background', key: 'minimap.background', type: 'color' },
+      { label: 'Selection Highlight', key: 'minimap.selectionHighlight', type: 'color' },
+      { label: 'Error Highlight', key: 'minimap.errorHighlight', type: 'color' },
+      { label: 'Warning Highlight', key: 'minimap.warningHighlight', type: 'color' },
+      { label: 'Find Match Highlight', key: 'minimap.findMatchHighlight', type: 'color' },
+      { label: 'Gutter Added Background', key: 'minimapGutter.addedBackground', type: 'color' },
+      { label: 'Gutter Modified Background', key: 'minimapGutter.modifiedBackground', type: 'color' },
+      { label: 'Gutter Deleted Background', key: 'minimapGutter.deletedBackground', type: 'color' },
+    ],
+  },
+  {
+    label: 'Badge',
+    settings: [
+      { label: 'Background', key: 'badge.background', type: 'color' },
+      { label: 'Foreground', key: 'badge.foreground', type: 'color' },
+    ],
+  },
+  {
+    label: 'Progress Bar',
+    settings: [
+      { label: 'Background', key: 'progressBar.background', type: 'color' },
+    ],
+  },
 ];

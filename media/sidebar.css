@@ -1,3 +1,10 @@
+/* Hide arrows on number input fields */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 body {
   font-family: system-ui, sans-serif;
   color: #ddd;
@@ -49,6 +56,97 @@ body {
   padding: 0;
 }
 
+/* Expandable element group */
+.element-group {
+  border-radius: 8px;
+  background: #232323;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 4px 0 #0002;
+  border: 1px solid #292929;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+
+.element-group:focus-within, .element-group:hover {
+  box-shadow: 0 2px 8px 0 #0078d455;
+  border-color: #0078d4;
+}
+
+.element-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: #232323;
+  cursor: pointer;
+  font-size: 1.08em;
+  font-weight: 500;
+  color: #fff;
+  border: none;
+  outline: none;
+  user-select: none;
+  transition: background 0.2s, color 0.2s;
+}
+
+.element-header:focus, .element-header:hover {
+  background: #262e3a;
+  color: #7ecfff;
+}
+
+.expand-icon {
+  font-size: 1.1em;
+  margin-left: 8px;
+  color: #7ecfff;
+  transition: transform 0.2s;
+}
+
+.element-settings {
+  background: #20232a;
+  padding: 8px 18px 12px 18px;
+  border-top: 1px solid #292929;
+  animation: fadeIn 0.2s;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid #232323;
+  font-size: 0.98em;
+  cursor: pointer;
+}
+
+.setting-item:last-child {
+  border-bottom: none;
+}
+
+.setting-item span {
+  color: #b7cfff;
+}
+
+.picker, .number-input, .string-input {
+  margin-left: 10px;
+  min-width: 40px;
+  border-radius: 4px;
+  border: 1px solid #333;
+  background: #181a1f;
+  color: #fff;
+  padding: 2px 6px;
+  font-size: 1em;
+  transition: border 0.2s;
+}
+
+.picker:focus, .number-input:focus, .string-input:focus {
+  border-color: #0078d4;
+  outline: none;
+}
+
 .item {
   display: flex;
   align-items: center;
@@ -73,11 +171,37 @@ body {
   margin-left: 8px;
 }
 
+input[type="number"] {
+  width: 50px;
+}
+
+select {
+  width: 100px;
+  padding: 4px;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  background-color: #2a2a2a;
+  color: #fff;
+}
+
+select option {
+  background-color: #2a2a2a;
+}
+
+select option:checked {
+  background-color: #2f2f2f;
+}
+
+select option:hover {
+  background-color: #3f3f3f;
+}
+
 @media (max-width: 350px) {
   .button-group {
     flex-direction: column;
     gap: 4px;
   }
+
   .button-group .config-btn {
     width: 100%;
     min-width: 0;

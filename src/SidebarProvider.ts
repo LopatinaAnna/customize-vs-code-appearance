@@ -2,16 +2,20 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { SettingsManager } from './SettingsManager';
-import { ELEMENTS } from './ElementRegistry';
+import { ELEMENTS, ElementDefinition, ElementSetting } from './ElementRegistry';
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
-  constructor(private readonly extensionUri: vscode.Uri) {}
+  constructor(private readonly extensionUri: vscode.Uri) { }
 
   public async resolveWebviewView(webviewView: vscode.WebviewView): Promise<void> {
     try {
+      //console.log(vscode.workspace.getConfiguration());
+      for (const [key, value] of Object.entries(vscode.workspace.getConfiguration().inspect('workbench') || {})) {
+        console.log(value);
+      }
       await SettingsManager.loadBaseColors();
       webviewView.webview.options = { enableScripts: true };
-      webviewView.webview.html = this.getHtml(webviewView.webview);
+      webviewView.webview.html = await this.getHtml(webviewView.webview, ELEMENTS);
 
       const sendState = () => {
         const workspaceAvailable = !!vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0;
@@ -52,6 +56,12 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       case 'setColor':
         await SettingsManager.onSetColor(msg.key, msg.color);
         break;
+      case 'setNumber':
+        await SettingsManager.onSetNumber(msg.key, msg.value);
+        break;
+      case 'setString':
+        await SettingsManager.onSetString(msg.key, msg.value);
+        break;
       case 'setConfigTarget':
         SettingsManager.setConfigTarget(msg.target);
         sendState();
@@ -75,7 +85,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   /**
    * Generates the HTML for the sidebar webview.
    */
-  private getHtml(webview: vscode.Webview): string {
+  private async getHtml(webview: vscode.Webview, elements: ElementDefinition[]): Promise<string> {
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, 'out', 'webview', 'sidebar.js')
     );
@@ -83,13 +93,25 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       vscode.Uri.joinPath(this.extensionUri, 'media', 'sidebar.css')
     );
 
-    const itemsHtml = ELEMENTS.map((el) => {
-      const color = this.sanitizeHex(SettingsManager.baseColors[el.key]);
+    const itemsHtml = elements.map((el, idx) => {
+      const settingsHtml = el.settings.map(setting => {
+        return `
+          <div class="setting-item" data-key="${setting.key}">
+            <span>${setting.label}</span>
+            ${this.getInputHtml(setting)}
+          </div>`;
+      }).join('');
       return `
-        <div class="item" data-key="${el.key}">
-          <span>${el.label}</span>
-          <input type="color" class="picker" data-key="${el.key}" value="${color}" />
-        </div>`;
+        <div class="element-group" data-group="${idx}">
+          <div class="element-header" tabindex="0" data-group="${idx}">
+            <span>${el.label}</span>
+            <span class="expand-icon">&#9654;</span>
+          </div>
+          <div class="element-settings" style="display:none;">
+            ${settingsHtml}
+          </div>
+        </div>
+      `;
     }).join('\n');
 
     const htmlPath = path.join(this.extensionUri.fsPath, 'src', 'webview', 'sidebar.html');
@@ -106,5 +128,33 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       .replace('{{styleSidebarUri}}', styleSidebarUri.toString())
       .replace('{{itemsHtml}}', itemsHtml)
       .replace('{{scriptUri}}', scriptUri.toString());
+  }
+
+  private getInputHtml(setting: ElementSetting): string {
+    const opts = setting.options ?? [];
+
+    if (setting.type === 'color') {
+      const color = this.sanitizeHex(SettingsManager.baseColors[setting.key]);
+      return `<input type="color" class="picker input-style" data-key="${setting.key}" value="${color}" />`;
+    } 
+    
+    if (setting.type === 'number') {
+      const value = SettingsManager.baseColors[setting.key] || '';
+      return `<input type="number" class="number-input input-style" data-key="${setting.key}" value="${value}" />`;
+    } 
+    
+    if (setting.type === 'string' && !!setting.options) {
+      let options = opts.map(opt => {
+        return `<option value="${opt}">${opt.charAt(0).toUpperCase() + opt.slice(1)}</option>`;
+      }).join('');
+      return `<select class="position-select input-style" data-key="${setting.key}"><option selected value="" disabled></option>${options}</select>`;
+    } 
+    
+    if (setting.type === 'string') {
+      const value = SettingsManager.baseColors[setting.key] || '';
+      return `<input type="text" class="string-input input-style" data-key="${setting.key}" value="${value}" />`;
+    }
+
+    return '<!-- Unsupported setting type -->';
   }
 }

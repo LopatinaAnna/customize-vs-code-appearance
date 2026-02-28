@@ -8,6 +8,4 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 }
 
-export function deactivate(): void {
-  // No cleanup needed
-}
+export function deactivate(): void { }
