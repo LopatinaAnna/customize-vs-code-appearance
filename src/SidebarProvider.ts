@@ -143,11 +143,20 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   }
 
   private getScriptUri(webview: vscode.Webview): vscode.Uri {
-    let scriptPath = vscode.Uri.joinPath(this.extensionUri, 'out', 'webview', 'sidebar.js');
-    if (!fs.existsSync(scriptPath.fsPath)) {
-      scriptPath = vscode.Uri.joinPath(this.extensionUri, 'src', 'webview', 'sidebar.js');
+    const candidates = [
+      ['out', 'webview', 'sidebar.js'],
+      ['webview', 'sidebar.js'],
+      ['src', 'webview', 'sidebar.js'],
+    ];
+    for (const parts of candidates) {
+      const candidate = vscode.Uri.joinPath(this.extensionUri, ...parts);
+      if (fs.existsSync(candidate.fsPath)) {
+        return webview.asWebviewUri(candidate);
+      }
     }
-    return webview.asWebviewUri(scriptPath);
+    // Fallback to the first path (packaged vs. dev) so URI is still returned
+    const fallback = vscode.Uri.joinPath(this.extensionUri, 'out', 'webview', 'sidebar.js');
+    return webview.asWebviewUri(fallback);
   }
 
   private generateElementHtml(el: ElementDefinition, idx: number): string {
@@ -172,18 +181,27 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   }
 
   private loadAndReplaceTemplate(cspSource: string, styleSidebarUri: string, itemsHtml: string, scriptUri: string): string {
-    const htmlPath = path.join(this.extensionUri.fsPath, 'src', 'webview', 'sidebar.html');
-    try {
-      const html = fs.readFileSync(htmlPath, 'utf8');
-      return html
-        .replace('{{cspSource}}', cspSource)
-        .replace('{{styleSidebarUri}}', styleSidebarUri)
-        .replace('{{itemsHtml}}', itemsHtml)
-        .replace('{{scriptUri}}', scriptUri);
-    } catch (err) {
-      console.error('Failed to read sidebar.html:', err);
-      return '<main><p>Failed to load sidebar UI.</p></main>';
+    const candidates = [
+      path.join(this.extensionUri.fsPath, 'out', 'webview', 'sidebar.html'),
+      path.join(this.extensionUri.fsPath, 'webview', 'sidebar.html'),
+      path.join(this.extensionUri.fsPath, 'src', 'webview', 'sidebar.html'),
+    ];
+    for (const htmlPath of candidates) {
+      try {
+        if (fs.existsSync(htmlPath)) {
+          const html = fs.readFileSync(htmlPath, 'utf8');
+          return html
+            .replace('{{cspSource}}', cspSource)
+            .replace('{{styleSidebarUri}}', styleSidebarUri)
+            .replace('{{itemsHtml}}', itemsHtml)
+            .replace('{{scriptUri}}', scriptUri);
+        }
+      } catch (err) {
+        console.error('Failed to read sidebar.html at', htmlPath, err);
+      }
     }
+    console.error('sidebar.html not found in any expected locations:', candidates);
+    return '<main><p>Failed to load sidebar UI.</p></main>';
   }
 
   private getInputHtml(setting: ElementSetting): string {
