@@ -1,13 +1,36 @@
 {
   "name": "customize-vs-code-appearance",
-  "displayName": "customize-vs-code-appearance",
-  "description": "",
-  "version": "1.0.0",
+  "displayName": "Customize VS Code Appearance",
+  "description": "Personalize colors for UI elements, editor settings, and layout preferences with live preview. Preview version. Development is in progress.",
+  "version": "1.0.3",
+  "icon": "media/edit-sparkle128.png",
+  "publisher": "AnnaLopatina",
+  "author": {
+    "name": "Anna Lopatina",
+    "email": "annalopatina.dev@outlook.com"
+  },
+  "preview": true,
+  "galleryBanner.color": {
+    "color": "#007acc",
+    "theme": "dark"
+  },
   "engines": {
     "vscode": "^1.104.0"
   },
   "categories": [
+    "Themes",
     "Other"
+  ],
+  "keywords": [
+    "vscode",
+    "customize",
+    "appearance",
+    "theme",
+    "color",
+    "personalize",
+    "ui",
+    "editor",
+    "layout"
   ],
   "activationEvents": [],
   "main": "./out/extension.js",
@@ -17,7 +40,7 @@
         {
           "id": "styleCustomizer",
           "title": "Customize VS Code Appearance",
-          "icon": "media/wand.svg"
+          "icon": "media/edit-sparkle.svg"
         }
       ]
     },
@@ -27,7 +50,7 @@
           "id": "styleCustomizerView",
           "name": "",
           "type": "webview",
-          "icon": "media/wand.svg"
+          "icon": "media/edit-sparkle.svg"
         }
       ]
     }

@@ -1,6 +1,7 @@
 # VS Code Appearance Customizer
 
 A VS Code extension that provides an intuitive sidebar interface for customizing VS Code's appearance. Customize colors for UI elements, editor settings, and layout preferences with live preview.
+**Preview version. Development is in progress.**
 
 ## Features
 
