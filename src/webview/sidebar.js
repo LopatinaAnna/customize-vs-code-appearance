@@ -73,8 +73,9 @@
     const header = resetIcon.closest('.element-header');
     const group = header.closest('.element-group');
     const keys = group?.getAttribute('data-keys')?.split(',').filter(k => k.trim()) || [];
+    const label = group?.getAttribute('data-label');
     if (keys.length > 0) {
-      vscode.postMessage({ type: 'resetGroup', keys });
+      vscode.postMessage({ type: 'resetGroup', keys, label });
     }
   }
 

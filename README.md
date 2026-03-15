@@ -86,6 +86,4 @@ All changes are made through VS Code's native settings system and can be manuall
 
 ## Release Notes
 
-### 1.0.0
-
-Initial release of VS Code Appearance Customizer with color customization support, live preview, dual-target configuration (Global/Workspace), and reset functionality.
+For a full list of changes, see [CHANGELOG.md].

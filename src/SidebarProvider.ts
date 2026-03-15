@@ -71,22 +71,35 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     webviewView.webview.onDidReceiveMessage(async (msg) => {
       try {
         if (msg.type === 'resetScope' && (msg.target === 'Global' || msg.target === 'Workspace')) {
-          await SettingsManager.resetScope(msg.target);
-          await this.refreshUI(webviewView, sendState);
-          vscode.window.showInformationMessage(`${msg.target} settings reset`);
+          this.withConfirmation(`Are you sure you want to reset ${msg.target} settings?`, async () => {
+            await SettingsManager.resetScope(msg.target);
+            await this.refreshUI(webviewView, sendState);
+            vscode.window.showInformationMessage(`${msg.target} settings reset`);
+          });
           return;
         }
+
         if (msg.type === 'resetGroup' && Array.isArray(msg.keys)) {
-          await SettingsManager.resetGroup(msg.keys);
-          await this.refreshUI(webviewView, sendState);
-          vscode.window.showInformationMessage('Group settings reset');
+          this.withConfirmation(`Are you sure you want to reset ${msg.label ?? 'group'} settings?`, async () => {
+            await SettingsManager.resetGroup(msg.keys);
+            await this.refreshUI(webviewView, sendState);
+            vscode.window.showInformationMessage(`${msg.label ?? 'Group'} settings reset`);
+          });          
           return;
         }
+
         await this.handleWebviewMessage(msg, sendState);
       } catch (err) {
         console.error('Error handling message:', err);
       }
     });
+  }
+
+  private async withConfirmation(message: string, action: () => Promise<void>, isModal: boolean = true): Promise<void> {
+    const result = await vscode.window.showInformationMessage(message, { modal: isModal }, 'Yes');
+    if (result === 'Yes') {
+      await action();
+    }
   }
 
   private async refreshUI(webviewView: vscode.WebviewView, sendState: () => void): Promise<void> {
@@ -167,18 +180,18 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             ${this.getInputHtml(setting)}
           </div>`).join('');
     const keyList = el.settings.map(s => s.key).join(',');
-    return `<div class="element-group" data-group="${idx}" data-keys="${keyList}">
-          <button class="element-header" tabindex="0" data-group="${idx}">
-            <div class="element-header-icons">
-              <span class="expand-icon">+</span>
-            </div>
-            <span class="element-header-title">${el.label}</span>
-            <span class="reset-element" title="Reset all the customizations for the ${el.label}">&#x21bb;</span>
-          </button>
-          <div class="element-settings" style="display:none;">
-            ${settingsHtml}
-          </div>
-        </div>`;
+    return `<div class="element-group" data-group="${idx}" data-keys="${keyList}" data-label="${el.label}">
+              <button class="element-header" tabindex="0" data-group="${idx}">
+                <div class="element-header-icons">
+                  <span class="expand-icon">+</span>
+                </div>
+                <span class="element-header-title">${el.label}</span>
+                <span class="reset-element" title="Reset all the customizations for the ${el.label}">&#x21bb;</span>
+              </button>
+              <div class="element-settings" style="display:none;">
+                ${settingsHtml}
+              </div>
+            </div>`;
   }
 
   private loadAndReplaceTemplate(cspSource: string, styleSidebarUri: string, itemsHtml: string, scriptUri: string): string {
