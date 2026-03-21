@@ -1,9 +1,11 @@
 import * as vscode from 'vscode';
+import { ELEMENTS } from './ElementRegistry';
+import { ItemSetting } from './models/ItemSetting';
 
 const HIGHLIGHT_COLOR = '#9a9a9aff';
-const CONFIG_KEY = 'workbench.colorCustomizations';
+const COLOR_CUSTOMIZATION_KEY = 'workbench.colorCustomizations';
 
-type ColorsMap = Record<string, string | undefined>;
+type SettingsMap = Record<string, any>;
 type ConfigTarget = 'Global' | 'Workspace';
 
 export class SettingsManager {
@@ -11,7 +13,7 @@ export class SettingsManager {
   private static pendingWrite: NodeJS.Timeout | null = null;
   private static lastWritePromise: Promise<void> = Promise.resolve();
   private static configTarget: ConfigTarget = 'Global';
-  public static baseColors: ColorsMap = {};
+  public static baseSettings: ItemSetting[] = [];
 
   /**
    * Maps a string config target to the corresponding VS Code enum.
@@ -27,17 +29,37 @@ export class SettingsManager {
     this.configTarget = target;
   }
 
+  /**
+   * Gets the current configuration target.
+   */
   public static getConfigTarget(): ConfigTarget {
     return this.configTarget;
   }
 
   /**
-   * Loads the current base colors from the VS Code configuration.
+   * Gets the current configuration target in VS Code enum form.
    */
-  public static async loadBaseColors(): Promise<void> {
-    const cfg = vscode.workspace.getConfiguration();
-    const current = cfg.get<Record<string, string>>(CONFIG_KEY) || {};
-    this.baseColors = { ...current };
+  public static getVscodeConfigTarget(): vscode.ConfigurationTarget {
+    return this.toVscodeConfigTarget(this.configTarget);
+  }
+
+  /**
+   * Loads the current base settings from the VS Code configuration.
+   */
+  public static loadBaseSettings(): void {
+    const config = vscode.workspace.getConfiguration();
+    ELEMENTS.forEach(element => {
+      element.settings.forEach(setting => {
+        const settings = config.get<Record<string, string>>(setting.section, {});
+        Object.entries(settings || {}).forEach(([key, value]) => {
+          if (setting.key === key) {
+            console.log(`Push setting: ${setting.section} ${key} ${value}`);
+            this.baseSettings.push(new ItemSetting(setting.section, key, value));
+            return;
+          }
+        });
+      });
+    });
   }
 
   /**
@@ -61,11 +83,11 @@ export class SettingsManager {
   /**
    * Sets a persistent color for an element.
    */
-  public static async onSetColor(key: string, color: string): Promise<void> {
+  public static async onSetColor(section: string, key: string, color: string): Promise<void> {
     if (!color || color.trim() === '') {
-      delete this.baseColors[key];
+      this.removeSetting(section, key);
     } else {
-      this.baseColors[key] = color.trim();
+      this.addOrUpdateSetting(section, key, color);
     }
     await this.applyEffectiveColors();
   }
@@ -73,90 +95,54 @@ export class SettingsManager {
   /**
    * Handles other number settings like font size.
    */
-  public static async onSetNumber(key: string, value: number): Promise<void> {
-    if (key === 'editor.fontSize') {
-      const fontSize = value && !isNaN(Number(value)) ? Number(value) : undefined;
-      const config = vscode.workspace.getConfiguration('editor');
-      if (fontSize) {
-        await config.update('fontSize', fontSize, SettingsManager.toVscodeConfigTarget(SettingsManager.getConfigTarget()));
-      }
-      return;
-    }
+  public static async onSetNumber(section: string, key: string, value: string): Promise<void> {
+    this.addOrUpdateSetting(section, key, value);
+    const config = vscode.workspace.getConfiguration(section);
+    await config.update(key, parseInt(value), SettingsManager.getVscodeConfigTarget());
   }
 
   /**
    * Handles string settings like font family.
    */
-  public static async onSetString(key: string, value: string): Promise<void> {
-    const configMap: Record<string, { section: string; setting: string }> = {
-      'editor.fontFamily': { section: 'editor', setting: 'fontFamily' },
-      'workbench.activityBar.location': { section: 'workbench', setting: 'activityBar.location' },
-      'workbench.sideBar.location': { section: 'workbench', setting: 'sideBar.location' },
-      'workbench.panel.defaultLocation': { section: 'workbench', setting: 'panel.defaultLocation' },
-    };
-
-    const config = configMap[key];
-    if (!config) return;
-
-    const cfg = vscode.workspace.getConfiguration(config.section);
-    const updateValue = key === 'editor.fontFamily' && value ? value.trim() : value;
-    
-    if (updateValue || key !== 'editor.fontFamily') {
-      await cfg.update(config.setting, updateValue, SettingsManager.toVscodeConfigTarget(SettingsManager.getConfigTarget()));
-    }
+  public static async onSetString(section: string, key: string, value: string): Promise<void> {
+    this.addOrUpdateSetting(section, key, value);
+    const config = vscode.workspace.getConfiguration(section);
+    await config.update(key, value, SettingsManager.getVscodeConfigTarget());
   }
 
   /**
-   * Reset only a specific set of color keys, leaving other customizations untouched.
+   * Reset all settings in the given group (element) to their defaults.
    */
-  public static async resetGroup(keys: string[]): Promise<void> {
-    if (!keys || keys.length === 0) {
+  public static resetGroup(groupLabel: string): void {
+    console.log(`Resetting group: ${groupLabel}`);
+    if (!groupLabel) {
       return;
     }
 
-    // remove keys from workspace/global individually
-    const cfg = vscode.workspace.getConfiguration();
-    const inspect = cfg.inspect<Record<string,string>>(CONFIG_KEY);
-    const newWorkspace: Record<string,string> = { ...(inspect?.workspaceValue || {}) };
-    const newGlobal: Record<string,string> = { ...(inspect?.globalValue || {}) };
-    keys.forEach(k => {
-      delete newWorkspace[k];
-      delete newGlobal[k];
-      delete this.baseColors[k];
-      delete this.tempHighlights[k];
-    });
-    try {
-      await cfg.update(CONFIG_KEY, newWorkspace, vscode.ConfigurationTarget.Workspace);
-      await cfg.update(CONFIG_KEY, newGlobal, vscode.ConfigurationTarget.Global);
-    } catch (err) {
-      console.error('Failed to update color customizations after group reset:', err);
+    let elementsToReset = ELEMENTS.find(g => g.label === groupLabel);
+    if (!elementsToReset) {
+      console.warn(`No group found with label ${groupLabel}`);
+      return;
     }
+
+    const config = vscode.workspace.getConfiguration();
+    elementsToReset.settings.forEach(setting => {
+        console.log(`Resetting setting: ${setting.section} ${setting.key}`);
+        config.update(`${setting.section}.${setting.key}`, undefined, SettingsManager.getVscodeConfigTarget());
+        this.removeSetting(setting.section, setting.key);
+        delete this.tempHighlights[setting.key];
+      });
   }
 
   /**
    * Reset the given configuration target only.
    */
-  public static async resetScope(scope: 'Global' | 'Workspace'): Promise<void> {
-    const target = this.toVscodeConfigTarget(scope);
-    const cfg = vscode.workspace.getConfiguration();
-    try {
-      await cfg.update(CONFIG_KEY, {}, target);
-      console.log(`Cleared ${CONFIG_KEY} at ${scope}`);
-    } catch (err) {
-      console.error(`Failed to clear ${CONFIG_KEY} at ${scope}`, err);
-    }
-
-    try {
-      const editorCfg = vscode.workspace.getConfiguration('editor');
-      await editorCfg.update('fontSize', undefined, target);
-      await editorCfg.update('fontFamily', undefined, target);
-      const workbench = vscode.workspace.getConfiguration('workbench');
-      await workbench.update('activityBar.location', undefined, target);
-      await workbench.update('sideBar.location', undefined, target);
-      await workbench.update('panel.defaultLocation', undefined, target);
-    } catch (err) { }
-    // clear caches so reload picks up changes
-    this.baseColors = {};
+  public static resetScope(scope: 'Global' | 'Workspace'): void {
+    console.log(`Resetting scope: ${scope}`);
+    ELEMENTS.map(e => e.label).forEach(group => {
+      this.resetGroup(group);
+    });
+    this.baseSettings = [];
     this.tempHighlights = {};
   }
 
@@ -168,22 +154,47 @@ export class SettingsManager {
     this.pendingWrite = setTimeout(() => {
       this.pendingWrite = null;
       const config = vscode.workspace.getConfiguration();
-      // Only include keys that are set in baseColors or tempHighlights
-      const effective: ColorsMap = {};
+      const effective: SettingsMap = {};
 
       // Apply persistent colors
-      Object.entries(this.baseColors).forEach(([k, v]) => {
-        if (v !== undefined) effective[k] = v;
+      this.baseSettings.forEach((setting) => {
+        if (setting.value !== undefined && setting.section === COLOR_CUSTOMIZATION_KEY) {
+          effective[setting.key] = setting.value;
+        }
       });
 
       // Apply temporary highlights (overrides persistent)
-      Object.entries(this.tempHighlights).forEach(([k, v]) => {
-        effective[k] = v;
+      Object.entries(this.tempHighlights).forEach(([key, value]) => {
+        effective[key] = value;
       });
 
       this.lastWritePromise = this.lastWritePromise
-        .then(() => config.update(CONFIG_KEY, effective, this.toVscodeConfigTarget(this.configTarget)))
+        .then(() => {
+          console.log('UPDATING color customizations with:', effective);
+          return config.update(COLOR_CUSTOMIZATION_KEY, effective, this.toVscodeConfigTarget(this.configTarget));
+        })
         .catch((err) => console.error('Failed to update:', err));
     }, 10);
+  }
+
+  /**
+   * Gets the current value of a setting from the base settings.
+   */
+  public static getSettingValue(section: string, key: string): string | undefined {
+    return this.baseSettings.find(s => s.section === section && s.key === key)?.value;
+  }
+
+  private static removeSetting(section: string, key: string): void {
+    this.baseSettings = this.baseSettings.filter(s => !(s.section === section && s.key === key));
+  }
+
+  private static addOrUpdateSetting(section: string, key: string, value: string): void {
+    console.log(`Push setting: ${section} ${key} ${value}`);
+    const existing = this.baseSettings.find(s => s.section === section && s.key === key);
+    if (existing) {
+      existing.value = value;
+    } else {
+      this.baseSettings.push(new ItemSetting(section, key, value));
+    }
   }
 }

@@ -1,8 +1,19 @@
 # Changelog
 
+## [1.0.8] - 2026-03-21
+
+### Improved
+
+- Improved codebase to provide better flexibility in managing settings.
+
+### Fixed
+
+- Fixed handling of number, string and select inputs.
+
 ## [1.0.7] - 2026-03-17
 
 ### Fixed
+
 - Fixed default color indicator to update dynamically when colors are customized or reset.
 - Improved webview refreshing to display correct colors after resets or view switches.
 

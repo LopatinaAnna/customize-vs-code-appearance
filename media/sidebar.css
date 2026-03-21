@@ -1,8 +1,55 @@
-/* Hide arrows on number input fields */
+/* Hide default arrows on number input fields */
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
+}
+
+/* Custom number input with separate arrow buttons */
+input[type="number"] {
+  width: 50px;
+  padding-right: 24px; /* Space for buttons */
+}
+
+/* Container for input and buttons */
+.number-input-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+}
+
+/* Up and down arrow buttons */
+.number-up,
+.number-down {
+  position: absolute;
+  right: 0;
+  width: 16px;
+  height: 50%; /* Split the height for up/down */
+  background: none;
+  border: none;
+  color: var(--vscode-input-foreground);
+  cursor: pointer;
+  font-size: 0.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, background-color 0.2s;
+  outline: none;
+}
+
+.number-up {
+  top: 0;
+}
+
+.number-down {
+  bottom: 0;
+}
+
+.number-up:hover,
+.number-down:hover {
+  color: var(--vscode-focusBorder);
+  background-color: var(--vscode-input-background);
 }
 
 /* Base layout and theme-aware colors */
@@ -68,7 +115,7 @@ body.vscode-light .config-btn {
 }
 .scope-reset.disabled {
   opacity: 0.5;
-  pointer-events: none;
+  cursor: not-allowed;
 }
 .scope-reset:hover {
   color: var(--vscode-list-focusForeground, var(--vscode-list-hoverForeground));
@@ -136,6 +183,7 @@ body.vscode-light .button-group .config-btn:disabled {
   display: flex;
   align-items: center;
   padding: 12px 18px;
+  /* padding: 2px 18px; */
   cursor: pointer;
   font-size: 1.08em;
   font-weight: 500;
@@ -156,6 +204,7 @@ body.vscode-light .button-group .config-btn:disabled {
 }
 
 .element-header-title {
+  /* padding: 12px; */
   flex: 1;
 }
 
@@ -304,7 +353,6 @@ select option:hover {
 }
 
 .default-label {
-  font-size: 0.85em;
   margin-left: 4px;
   align-self: center;
 }

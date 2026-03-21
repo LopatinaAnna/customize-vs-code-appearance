@@ -11,7 +11,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
   public async resolveWebviewView(webviewView: vscode.WebviewView): Promise<void> {
     try {
-      await SettingsManager.loadBaseColors();
+      SettingsManager.loadBaseSettings();
       webviewView.webview.options = { enableScripts: true };
       webviewView.webview.html = await this.getHtml(webviewView.webview, ELEMENTS);
 
@@ -60,34 +60,51 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   }
 
   private setupMessageHandler(webviewView: vscode.WebviewView): void {
-    const sendState = () => this.refreshWorkspaceAvailability(webviewView);
-
     webviewView.webview.onDidReceiveMessage(async (msg) => {
       try {
-        if (msg.type === 'consoleLog') {
-          console.log(msg.message);
-          return;
+        switch (msg.type) {
+          case 'hover':
+            await SettingsManager.onHover(msg.key);
+            break;
+          case 'leave':
+            await SettingsManager.onLeave(msg.key);
+            break;
+          case 'setColor':
+            await SettingsManager.onSetColor(msg.section, msg.key, msg.color);
+            break;
+          case 'setNumber':
+            await SettingsManager.onSetNumber(msg.section, msg.key, msg.value);
+            break;
+          case 'setString':
+            await SettingsManager.onSetString(msg.section, msg.key, msg.value);
+            break;
+          case 'setConfigTarget':
+            SettingsManager.setConfigTarget(msg.target);
+            this.refreshWorkspaceAvailability(webviewView);
+            break;
+          case 'requestState':
+            this.refreshWorkspaceAvailability(webviewView);
+            break;
+          case 'resetScope':
+            this.withConfirmation(`Are you sure you want to reset ${msg.target} settings?`, async () => {
+              SettingsManager.resetScope(msg.target);
+              await this.refreshUI(webviewView);
+              vscode.window.showInformationMessage(`${msg.target} settings reset`);
+            });
+            break;
+          case 'resetGroup':
+            this.withConfirmation(`Are you sure you want to reset ${msg.label} settings?`, async () => {
+              SettingsManager.resetGroup(msg.label);
+              await this.refreshUI(webviewView);
+              vscode.window.showInformationMessage(`${msg.label} settings reset`);
+            });
+            break;
+          case 'consoleLog':
+            console.log(msg.message);
+            break;
+          default:
+            console.warn('Unknown message type:', msg.type);
         }
-
-        if (msg.type === 'resetScope' && (msg.target === 'Global' || msg.target === 'Workspace')) {
-          this.withConfirmation(`Are you sure you want to reset ${msg.target} settings?`, async () => {
-            await SettingsManager.resetScope(msg.target);
-            await this.refreshUI(webviewView);
-            vscode.window.showInformationMessage(`${msg.target} settings reset`);
-          });
-          return;
-        }
-
-        if (msg.type === 'resetGroup' && Array.isArray(msg.keys)) {
-          this.withConfirmation(`Are you sure you want to reset ${msg.label ?? 'group'} settings?`, async () => {
-            await SettingsManager.resetGroup(msg.keys);
-            await this.refreshUI(webviewView);
-            vscode.window.showInformationMessage(`${msg.label ?? 'Group'} settings reset`);
-          });          
-          return;
-        }
-
-        await this.handleWebviewMessage(msg, sendState);
       } catch (err) {
         console.error('Error handling message:', err);
       }
@@ -102,7 +119,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   }
 
   private async refreshUI(webviewView: vscode.WebviewView): Promise<void> {
-    await SettingsManager.loadBaseColors();
+    console.log('Refreshing UI with latest settings...');
+    SettingsManager.applyEffectiveColors();
     webviewView.webview.html = ''; // clear before updating to prevent flash of old content
     webviewView.webview.html = await this.getHtml(webviewView.webview, ELEMENTS);
     this.refreshWorkspaceAvailability(webviewView);
@@ -117,13 +135,13 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         await SettingsManager.onLeave(msg.key);
         break;
       case 'setColor':
-        await SettingsManager.onSetColor(msg.key, msg.color);
+        await SettingsManager.onSetColor(msg.section, msg.key, msg.color);
         break;
       case 'setNumber':
-        await SettingsManager.onSetNumber(msg.key, msg.value);
+        await SettingsManager.onSetNumber(msg.section, msg.key, msg.value);
         break;
       case 'setString':
-        await SettingsManager.onSetString(msg.key, msg.value);
+        await SettingsManager.onSetString(msg.section, msg.key, msg.value);
         break;
       case 'setConfigTarget':
         SettingsManager.setConfigTarget(msg.target);
@@ -175,23 +193,24 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
   private generateElementHtml(el: ElementDefinition, idx: number): string {
     const settingsHtml = el.settings.map(setting => `
-          <div class="setting-item">
-            <span class="setting-label" data-key="${setting.key}">${setting.label}</span>
-            ${this.getInputHtml(setting)}
-          </div>`).join('');
+      <div class="setting-item">
+        <span class="setting-label" data-key="${setting.key}">${setting.label}</span>
+        ${this.getInputHtml(setting)}
+      </div>`).join('');
     const keyList = el.settings.map(s => s.key).join(',');
-    return `<div class="element-group" data-group="${idx}" data-keys="${keyList}" data-label="${el.label}">
-              <button class="element-header" tabindex="0" data-group="${idx}">
-                <div class="element-header-icons">
-                  <span class="expand-icon">+</span>
-                </div>
-                <span class="element-header-title">${el.label}</span>
-                <span class="reset-element" title="Reset all the customizations for the ${el.label}">&#x21bb;</span>
-              </button>
-              <div class="element-settings" style="display:none;">
-                ${settingsHtml}
-              </div>
-            </div>`;
+    return `
+      <div class="element-group" data-group="${idx}" data-keys="${keyList}" data-label="${el.label}">
+        <button class="element-header" tabindex="0" data-group="${idx}">
+          <div class="element-header-icons">
+            <span class="expand-icon">+</span>
+          </div>
+          <span class="element-header-title">${el.label}</span>
+          <span class="reset-element" title="Reset all the customizations for the ${el.label}">&#x21bb;</span>
+        </button>
+        <div class="element-settings" style="display:none;">
+          ${settingsHtml}
+        </div>
+      </div>`;
   }
 
   private loadAndReplaceTemplate(cspSource: string, styleSidebarUri: string, itemsHtml: string, scriptUri: string): string {
@@ -232,7 +251,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   }
 
   private getColorInput(setting: ElementSetting): string {
-    const color = this.sanitizeHex(SettingsManager.baseColors[setting.key]);
+    const color = this.sanitizeHex(SettingsManager.getSettingValue(setting.section, setting.key));
     const defaultColor = '#000000';
 
     // Extract RGB (6 chars) and alpha (2 chars) from the color value
@@ -250,32 +269,65 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         rgbColor = color;
       }
     }
-
-    const isDefault = !color;
     
-    return `<div class="color-input-group" data-key="${setting.key}">
-      <span class="default-label" title="${isDefault ? "Color is not customized." : ""}">${isDefault ? "★" : ""}</span>
-      <input type="color" class="picker color-rgb input-style" data-key="${setting.key}" value="${rgbColor}" />
-      <div class="opacity-control">
-        <input type="range" class="opacity-slider" title="Opacity: ${alphaPercent}%" data-key="${setting.key}" min="0" max="100" value="${alphaPercent}" />
-      </div>
-    </div>`;
+    return `
+      <div class="color-input-group" data-section="${setting.section}" data-key="${setting.key}">
+        <span class="default-label" title="${!color ? "Color is not customized." : ""}">${!color ? "*" : ""}</span>
+        <input type="color" class="picker color-rgb input-style" data-section="${setting.section}" data-key="${setting.key}" value="${rgbColor}" />
+        <div class="opacity-control">
+          <input
+            type="range"
+            class="opacity-slider"
+            title="Opacity: ${alphaPercent}%"
+            data-section="${setting.section}" data-key="${setting.key}"
+            min="0"
+            max="100"
+            value="${alphaPercent}" />
+        </div>
+      </div>`;
   }
 
   private getNumberInput(setting: ElementSetting): string {
-    const value = SettingsManager.baseColors[setting.key] || '';
-    return `<input type="number" class="number-input input-style" data-key="${setting.key}" value="${value}" />`;
+    const currentValue = SettingsManager.getSettingValue(setting.section, setting.key);
+    const value: number = currentValue ? parseInt(currentValue) || 0 : 0;
+    return `
+      <div class="number-input-wrapper">
+        <input
+          type="number"
+          class="number-input input-style"
+          data-section="${setting.section}"
+          data-key="${setting.key}"
+          value="${value ? value : ''}"
+          min="6"
+          max="100"
+          step="1" />
+        <button type="button" class="number-up" data-key="${setting.key}" title="Increase">▲</button>
+        <button type="button" class="number-down" data-key="${setting.key}" title="Decrease">▼</button>
+      </div>`;
   }
 
   private getSelectInput(setting: ElementSetting): string {
+    const value = SettingsManager.getSettingValue(setting.section, setting.key) || '';
     const options = (setting.options || []).map(opt =>
-      `<option value="${opt}">${opt.charAt(0).toUpperCase() + opt.slice(1)}</option>`
+      `<option value="${opt}" ${opt === value || (!setting.options?.includes(value) && opt === 'default') ? 'selected' : ''}>
+        ${opt.charAt(0).toUpperCase() + opt.slice(1)}
+      </option>`
     ).join('');
-    return `<select class="position-select input-style" data-key="${setting.key}"><option selected value="" disabled></option>${options}</select>`;
+    return `
+      <select class="position-select input-style" data-section="${setting.section}" data-key="${setting.key}">
+        <option selected value="" disabled>
+        </option>${options}
+      </select>`;
   }
 
   private getTextInput(setting: ElementSetting): string {
-    const value = SettingsManager.baseColors[setting.key] || '';
-    return `<input type="text" class="string-input input-style" data-key="${setting.key}" value="${value}" />`;
+    const value = SettingsManager.getSettingValue(setting.section, setting.key) || '';
+    return `
+      <input
+        type="text"
+        class="string-input input-style"
+        data-section="${setting.section}"
+        data-key="${setting.key}"
+        value="${value}" />`;
   }
 }

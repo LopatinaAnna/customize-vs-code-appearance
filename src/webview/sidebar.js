@@ -19,8 +19,8 @@
     });
     addListeners('.reset-element', 'click', handleElementReset);
 
-    addListeners('.element-header', 'mouseenter', handleGroupHover);
-    addListeners('.element-header', 'mouseleave', handleGroupLeave);
+    addListeners('.element-header-title', 'mouseenter', handleGroupHover);
+    addListeners('.element-header-title', 'mouseleave', handleGroupLeave);
     addListeners('.setting-label', 'mouseenter', handleHover);
     addListeners('.setting-label', 'mouseleave', handleLeave);
     addListeners('.position-select', 'change', handlePositionChange);
@@ -31,10 +31,14 @@
     addListeners('.color-rgb', 'input', handleColorRgbChange);
     addListeners('.color-rgb', 'change', handleColorRgbChange);
     addListeners('.opacity-slider', 'input', handleOpacityChange);
+
     addListeners('.number-input', 'input', handleNumberChange);
     addListeners('.string-input', 'input', handleStringChange);
 
     addListeners('.scope-reset', 'click', handleScopeReset);
+
+    addListeners('.number-up', 'click', handleArrowClick(true));
+    addListeners('.number-down', 'click', handleArrowClick(false));
 
     const btnGlobal = document.getElementById('btn-global');
     const btnWorkspace = document.getElementById('btn-workspace');
@@ -53,6 +57,31 @@
     }
   }
 
+  function handleArrowClick(isUp) {
+    return function(event) {
+      event.preventDefault();
+      const button = event.currentTarget;
+      const key = button.getAttribute('data-key');
+      const wrapper = button.closest('.number-input-wrapper');
+      const input = wrapper.querySelector('.number-input');
+      if (!input) return;
+
+      let newValue = parseInt(input.value) || 5; // Start from 5 so that the first click sets it to 6
+      const min = parseInt(input.min) || 6;
+      const max = parseInt(input.max) || 100;
+      const step = parseInt(input.step) || 1;
+
+      if (isUp) {
+        newValue = Math.min(newValue + step, max);
+      } else {
+        newValue = Math.max(newValue - step, min);
+      }
+      input.value = newValue;
+
+      const changeEvent = new Event('input', { bubbles: true });
+      input.dispatchEvent(changeEvent);
+    }
+  }
   function handleExpandCollapse(event) {
     if (event.target.closest('.reset-element')) {
       return;
@@ -91,7 +120,8 @@
   function handlePositionChange(event) {
     const select = event.currentTarget;
     const key = select.getAttribute('data-key');
-    vscode.postMessage({ type: 'setString', key, value: select.value });
+    const section = select.getAttribute('data-section');
+    vscode.postMessage({ type: 'setString', section, key, value: select.value });
   }
 
   function handleHexColorInput(event) {
@@ -145,6 +175,7 @@
   function handleColorChange(event) {
     const input = event.currentTarget;
     const key = input.getAttribute('data-key');
+    const section = input.getAttribute('data-section');
     const value = input.value;
     
     // Validate hex color format: #RRGGBB or #RRGGBBAA
@@ -164,12 +195,13 @@
       defaultLabel.title = '';
     }
     
-    vscode.postMessage({ type: 'setColor', key, color: value });
+    vscode.postMessage({ type: 'setColor', section, key, color: value });
   }
 
   function handleColorRgbChange(event) {
     const input = event.currentTarget;
     const key = input.getAttribute('data-key');
+    const section = input.getAttribute('data-section');
     const rgbColor = input.value; // e.g., #FF0000
     
     // Get the opacity slider in the same group
@@ -182,13 +214,13 @@
     
     // Combine RGB and alpha: #RRGGBBAA
     const fullColor = rgbColor + opacityHex;
-    
-    vscode.postMessage({ type: 'setColor', key, color: fullColor });
+    vscode.postMessage({ type: 'setColor', section, key, color: fullColor });
   }
 
   function handleOpacityChange(event) {
     const slider = event.currentTarget;
     const key = slider.getAttribute('data-key');
+    const section = slider.getAttribute('data-section');
     const opacityPercent = slider.value;
     
     // Update the opacity label
@@ -204,13 +236,17 @@
     // Combine RGB and alpha: #RRGGBBAA
     const fullColor = colorRgb + opacityHex;
     
-    vscode.postMessage({ type: 'setColor', key, color: fullColor });
+    vscode.postMessage({ type: 'setColor', section, key, color: fullColor });
   }
 
   function handleNumberChange(event) {
     const input = event.currentTarget;
+    if (input.value < 6 || input.value > 100) {
+      return;
+    }
     const key = input.getAttribute('data-key');
-    vscode.postMessage({ type: 'setNumber', key, value: input.value });
+    const section = input.getAttribute('data-section');
+    vscode.postMessage({ type: 'setNumber', section, key, value: input.value });
   }
 
   function handleStringChange(event) {
@@ -237,17 +273,19 @@
       if (btnGlobal) {
         btnGlobal.disabled = !!msg.available;
         btnGlobal.title = msg.available ? 'Global config is not available in workspace' : '';
-        const icon = document.querySelector('.scope-control .scope-reset[data-target="Global"]');
-        if (icon) icon.classList.toggle('disabled', btnGlobal.disabled);
+        // const icon = document.querySelector('.scope-control .scope-reset[data-target="Global"]');
+        // if (icon) icon.classList.toggle('disabled', btnGlobal.disabled);
       }
       if (btnWorkspace) {
         btnWorkspace.disabled = !msg.available;
         btnWorkspace.title = !msg.available ? 'No workspace available' : '';
         const icon = document.querySelector('.scope-control .scope-reset[data-target="Workspace"]');
-        if (icon) icon.classList.toggle('disabled', btnWorkspace.disabled);
+        if (icon) {
+          icon.classList.toggle('disabled', btnWorkspace.disabled);
+          icon.title = btnWorkspace.title;
+        }
       }
       if (msg.configTarget) setActiveConfigButton(msg.configTarget);
-      attachListeners();
     } else if (msg.type === 'setTheme') {
       setThemeClass(msg.theme);
     }
