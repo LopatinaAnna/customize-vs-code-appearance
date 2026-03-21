@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.9] - 2026-03-21
+
+### Improved
+
+- Extended list of customizable elements.
+
 ## [1.0.8] - 2026-03-21
 
 ### Improved

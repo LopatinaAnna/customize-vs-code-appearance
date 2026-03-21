@@ -194,7 +194,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   private generateElementHtml(el: ElementDefinition, idx: number): string {
     const settingsHtml = el.settings.map(setting => `
       <div class="setting-item">
-        <span class="setting-label" data-key="${setting.key}">${setting.label}</span>
+        <span class="setting-label" data-key="${setting.key}" title="${setting.description}">
+          ${setting.label}
+        </span>
         ${this.getInputHtml(setting)}
       </div>`).join('');
     const keyList = el.settings.map(s => s.key).join(',');
@@ -204,7 +206,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
           <div class="element-header-icons">
             <span class="expand-icon">+</span>
           </div>
-          <span class="element-header-title">${el.label}</span>
+          <span class="element-header-title" title="${el.description}">${el.label}</span>
           <span class="reset-element" title="Reset all the customizations for the ${el.label}">&#x21bb;</span>
         </button>
         <div class="element-settings" style="display:none;">

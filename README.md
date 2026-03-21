@@ -81,7 +81,7 @@ All changes are made through VS Code's native settings system and can be manuall
 
 ## Requirements
 
-- VS Code 1.60 or later
+- VS Code 1.104.0 or later
 - No additional dependencies required
 
 ## Release Notes
