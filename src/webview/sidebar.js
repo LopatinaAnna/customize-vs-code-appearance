@@ -1,5 +1,71 @@
 (() => {
   const vscode = acquireVsCodeApi();
+  const themeColors = {};
+
+  /**
+   * Converts rgb(r, g, b) or rgba(r, g, b, a) string to hex color.
+   */
+  function rgbToHex(rgb) {
+    const match = rgb.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/);
+    if (!match) return '#000000';
+    
+    const r = parseInt(match[1]);
+    const g = parseInt(match[2]);
+    const b = parseInt(match[3]);
+    const a = match[4] ? Math.round(parseFloat(match[4]) * 255) : 255;
+    
+    const hex = [r, g, b, a].map(x => x.toString(16).padStart(2, '0').toUpperCase()).join('');
+    return '#' + hex;
+  }
+
+  /**
+   * Computes all theme colors from the provided list of color keys.
+   */
+  function computeAllThemeColors(colorKeys) {
+    vscode.postMessage({ type: 'consoleLog', message: `Received request to compute theme colors` });
+
+    colorKeys = colorKeys || [];
+    let hasChanges = false;
+    colorKeys.forEach(key => {
+      try {
+        const newColor = computeThemeColor(key);
+        if (!themeColors || themeColors[key] !== newColor) {
+          themeColors[key] = newColor;
+          hasChanges = true;
+        }
+      } catch (e) {
+        console.warn(`Failed to compute theme color for ${key}:`, e);
+      }
+    });
+
+     if (hasChanges) {
+      vscode.postMessage({ type: 'consoleLog', message: `Theme colors updated.` });
+      sendThemeColors();
+    } else {
+      vscode.postMessage({ type: 'consoleLog', message: `No changes in theme colors.` });
+    }
+  }
+
+  /**
+   * Computes the actual theme color for a given color key.
+   * Creates a temporary element with the color applied and reads its computed style.
+   */
+  function computeThemeColor(colorKey) {
+    // Create a temporary hidden element with data-vscode-color attribute
+    const temp = document.createElement('div');
+    temp.style.display = 'none';
+    temp.style.color = `var(--vscode-${colorKey})`;
+    document.body.appendChild(temp);
+    
+    const computedColor = window.getComputedStyle(temp).color;
+    document.body.removeChild(temp);
+    
+    return rgbToHex(computedColor);
+  }
+
+  function sendThemeColors() {
+    vscode.postMessage({ type: 'themeColorsReady', colors: themeColors });
+  }
 
   function setThemeClass(themeClass) {
     document.body.classList.remove('vscode-light', 'vscode-dark', 'vscode-high-contrast');
@@ -58,7 +124,7 @@
 
   function addListenersColorInput(selector) {
     selector = selector ?? '';
-    vscode.postMessage({ type: 'consoleLog', message: `Adding color input listeners for selector: '${selector}'` });
+    //vscode.postMessage({ type: 'consoleLog', message: `Adding color input listeners for selector: '${selector}'` });
     addListeners(`${selector}.picker`, 'input', handleColorChange);
     addListeners(`${selector}.picker`, 'change', handleColorChange);
     addListeners(`${selector}.picker-hex`, 'input', handleHexColorInput);
@@ -352,7 +418,9 @@
     }
     
     if (msg.type === 'setTheme') {
+      vscode.postMessage({ type: 'consoleLog', message: `Received request to set theme: '${msg.theme}'` });
       setThemeClass(msg.theme);
+      setTimeout(() => computeAllThemeColors(msg.colorKeys), 100);
       return;
     }
     

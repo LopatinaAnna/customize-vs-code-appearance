@@ -1,16 +1,26 @@
 # Changelog
 
+## [1.0.15] - 2026-04-09
+
+### Added
+
+- Added displaying of default colors depending on selected theme.
+
+### Improved
+
+- Enhanced UI responsiveness when resetting scope.
+
 ## [1.0.14] - 2026-04-04
 
 ### Fixed
 
-- Updated error handling for configuration updates
+- Updated error handling for configuration updates.
 
 ## [1.0.13] - 2026-04-04
 
 ### Fixed
 
-- Added webpack to bundle extension into a single JavaScript file for web
+- Added webpack to bundle extension into a single JavaScript file for web.
 
 ## [1.0.12] - 2026-04-04
 

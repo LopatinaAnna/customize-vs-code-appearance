@@ -5,6 +5,7 @@ import { ElementSetting } from './interfaces/ElementSetting';
 
 const HIGHLIGHT_COLOR = '#9a9a9aff';
 const COLOR_CUSTOMIZATION_KEY = 'workbench.colorCustomizations';
+const COLOR_THEME_KEY = 'workbench.colorTheme';
 
 type SettingsMap = Record<string, any>;
 type ConfigTarget = 'Global' | 'Workspace';
@@ -198,6 +199,11 @@ export class SettingsManager {
         }
       }, 10);
     });
+  }
+
+  public static getColorTheme(): string {
+    const config = vscode.workspace.getConfiguration();
+    return config.get<string>(COLOR_THEME_KEY) || 'Default';
   }
 
   /**

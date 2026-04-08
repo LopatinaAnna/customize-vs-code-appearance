@@ -5,6 +5,10 @@ import { ElementDefinition } from './interfaces/ElementDefinition';
 import { ElementSetting } from './interfaces/ElementSetting';
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
+  private themeColors: Record<string, string> = {};
+  private currentTheme: string = '';
+  private isRefreshing: boolean = false;
+
   constructor(private readonly extensionUri: vscode.Uri) { }
 
   public async resolveWebviewView(webviewView: vscode.WebviewView): Promise<void> {
@@ -13,15 +17,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       webviewView.webview.options = { enableScripts: true };
       webviewView.webview.html = await this.getHtml(webviewView.webview, ELEMENTS);
 
+      this.currentTheme = SettingsManager.getColorTheme();
       this.setupThemeListener(webviewView);
       this.setupStateManagement(webviewView);
       this.setupMessageHandler(webviewView);
-
-      webviewView.onDidChangeVisibility(async () => {
-        if (webviewView.visible) {
-          await this.refreshUI(webviewView);
-        }
-      });
     } catch (err) {
       console.error('Failed to resolve webview view:', err);
     }
@@ -47,10 +46,38 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       const themeClass = kind === vscode.ColorThemeKind.Dark ? 'vscode-dark'
         : kind === vscode.ColorThemeKind.Light ? 'vscode-light'
         : 'vscode-high-contrast';
-      webviewView.webview.postMessage({ type: 'setTheme', theme: themeClass });
+      
+      const colorKeys: string[] = [];
+      ELEMENTS.forEach(el => {
+        el.settings.forEach(setting => {
+          if (setting.type === 'color') {
+            colorKeys.push(setting.key.replace(/\./g, '-'));
+          }
+        });
+      });
+
+      webviewView.webview.postMessage({ 
+        type: 'setTheme', 
+        theme: themeClass,
+        colorKeys: colorKeys
+      });
     };
+
     postTheme(vscode.window.activeColorTheme.kind);
-    vscode.window.onDidChangeActiveColorTheme(e => postTheme(e.kind));
+
+    webviewView.onDidChangeVisibility(async () => {
+      if (webviewView.visible) {
+        postTheme(vscode.window.activeColorTheme.kind);
+      }
+    });
+
+    vscode.window.onDidChangeActiveColorTheme(async e => {
+      if (this.currentTheme !== await SettingsManager.getColorTheme()) {
+        console.log('Active color theme changed:', e.kind);
+        this.currentTheme = await SettingsManager.getColorTheme();
+        postTheme(vscode.window.activeColorTheme.kind);
+      }
+    });
   }
 
   private setupStateManagement(webviewView: vscode.WebviewView): void {
@@ -59,6 +86,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
   private setupMessageHandler(webviewView: vscode.WebviewView): void {
     webviewView.webview.onDidReceiveMessage(async (msg) => {
+      if (this.isRefreshing) {
+        return;
+      }
       try {
         switch (msg.type) {
           case 'toggleHighlighting':
@@ -88,10 +118,17 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             break;
           case 'resetScope':
             this.withConfirmation(`Are you sure you want to reset ${msg.target} settings?`, async () => {
-              SettingsManager.resetScope(msg.target);
-              await SettingsManager.applyEffectiveColors();
-              await this.refreshUI(webviewView);
-              vscode.window.showInformationMessage(`${msg.target} settings reset`);
+              vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: "Resetting settings...",
+                cancellable: false
+              }, async () => {
+                this.isRefreshing = true;
+                SettingsManager.resetScope(msg.target);
+                await SettingsManager.applyEffectiveColors();
+                await this.refreshUI(webviewView);
+                vscode.window.showInformationMessage(`${msg.target} settings reset`);
+              });
             });
             break;
           case 'resetGroup':
@@ -107,6 +144,19 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             await SettingsManager.applyEffectiveColors();
             await this.refreshElementUI(webviewView, msg.setting);
             vscode.window.showInformationMessage(`${msg.setting.label} reset`);
+            break;
+          case 'themeColorsReady':
+            const newColors = msg.colors || {};
+            this.themeColors = newColors;
+            if (Object.keys(this.themeColors).length > 0 && webviewView) {
+              vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: "Refreshing settings...",
+                cancellable: false
+              }, async () => {
+                await this.refreshUI(webviewView);
+              });
+            }
             break;
           case 'consoleLog':
             console.log(msg.message);
@@ -128,11 +178,13 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   }
 
   private async refreshUI(webviewView: vscode.WebviewView): Promise<void> {
-    console.log('Refreshing UI with latest settings...');
+    this.isRefreshing = true;
     await SettingsManager.applyEffectiveColors();
-    webviewView.webview.html = ''; // clear before updating to prevent flash of old content
-    webviewView.webview.html = await this.getHtml(webviewView.webview, ELEMENTS);
+    for (const element of ELEMENTS) {
+      await this.refreshGroupUI(webviewView, element.label);
+    }
     this.refreshWorkspaceAvailability(webviewView);
+    this.isRefreshing = false;
   }
 
   private async refreshGroupUI(webviewView: vscode.WebviewView, label: string): Promise<void> {
@@ -174,6 +226,15 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     if (!value) return ''; // no customization defined
     // Accept both 6-digit (#RRGGBB) and 8-digit (#RRGGBBAA) hex colors
     return /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(value) ? value : '';
+  }
+
+  /**
+   * Gets the theme color for a specific color key.
+   * Converts the key format (e.g., "titleBar.activeBackground") to theme format (e.g., "titleBar-activeBackground").
+   */
+  private getThemeColor(colorKey: string): string | undefined {
+    const themeKey = colorKey.replace(/\./g, '-');
+    return this.themeColors[themeKey];
   }
 
   private async getHtml(webview: vscode.Webview, elements: ElementDefinition[]): Promise<string> {
@@ -271,7 +332,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
   private getColorInput(setting: ElementSetting): string {
     const color = this.sanitizeHex(SettingsManager.getSettingValue(setting.section, setting.key));
-    const defaultColor = '#000000';
+    // Use theme color as default if no custom color is set
+    const themeColor = this.getThemeColor(setting.key);
+    const defaultColor = themeColor || '#000000';
 
     // Extract RGB (6 chars) and alpha (2 chars) from the color value
     let rgbColor = defaultColor; // default RGB
@@ -283,16 +346,26 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         rgbColor = color.substring(0, 7);
         const alphaHex = color.substring(7, 9);
         alphaPercent = String(Math.round((parseInt(alphaHex, 16) / 255) * 100));
-      } else if (color.length === 7) {
+      } 
+      if (color.length === 7) {
         // 6-digit hex: #RRGGBB
         rgbColor = color;
+      }
+    } else if (themeColor && themeColor.length >= 7) {
+      if (themeColor.length === 9) {
+        rgbColor = themeColor.substring(0, 7);
+        const alphaHex = themeColor.substring(7, 9);
+        alphaPercent = String(Math.round((parseInt(alphaHex, 16) / 255) * 100));
+      } 
+      if (themeColor.length === 7) {
+        rgbColor = themeColor;
       }
     }
     
     return `
       <div id="${setting.section}.${setting.key}" class="element-row" data-setting="${encodeURIComponent(JSON.stringify(setting))}">
         <div class="color-input-group">
-          <input type="color" class="picker color-rgb input-style" title="${!color ? "Color is not customized yet. Click to pick a color." : rgbColor}" value="${rgbColor}" />
+          <input type="color" class="picker color-rgb input-style" title="${!color ? "Using theme color. Click to customize." : rgbColor}" value="${rgbColor}" />
           <div class="opacity-control">
             <input
               type="range"
