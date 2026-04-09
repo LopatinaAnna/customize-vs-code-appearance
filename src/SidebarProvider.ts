@@ -149,7 +149,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
           case 'resetElement':
             SettingsManager.resetElement(msg.setting);
             await SettingsManager.applyEffectiveColors();
-            this.requestFreshThemeColors(webviewView, msg.setting);
+            if (msg.setting.type === 'color') {
+              this.requestFreshThemeColors(webviewView, msg.setting);
+            } else {
+              this.refreshElementUI(webviewView, msg.setting);
+            }
             break;
           case 'themeColorsReady':
             this.refreshUI(webviewView, msg.colors);
@@ -252,11 +256,13 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
   private generateElementHtml(el: ElementDefinition, idx: number): string {
     const settingsHtml = el.settings.map(setting => `
-      <div class="setting-item">
-        <div class="setting-label modified" data-key="${setting.key}" title="${setting.description}">
-          ${setting.label}
+      <div class="setting-container">
+        <div class="setting-item" data-key="${setting.key}">
+          <div class="setting-label" data-key="${setting.key}" title="${setting.description}">
+            ${setting.label}
+          </div>
+          ${this.getInputHtml(setting)}
         </div>
-        ${this.getInputHtml(setting)}
       </div>`).join('');
 
     return `
@@ -360,7 +366,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     }
     
     return `
-      <div id="${setting.section}.${setting.key}" class="element-row" data-setting="${encodeURIComponent(JSON.stringify(setting))}">
+      <div id="${setting.section}.${setting.key}" class="element-row" data-is-modified="${!!color}" data-setting="${encodeURIComponent(JSON.stringify(setting))}">
         <div class="color-input-group">
           <input type="color" class="picker color-rgb input-style" title="${!color ? "Using theme color. Click to customize." : rgbColor}" value="${rgbColor}" />
           <div class="opacity-control">
@@ -382,7 +388,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     const currentValue = SettingsManager.getSettingValue(setting.section, setting.key);
     const value: number = currentValue ? parseInt(currentValue) || 0 : 0;
     return `
-      <div id="${setting.section}.${setting.key}" class="element-row" data-setting="${encodeURIComponent(JSON.stringify(setting))}">
+      <div id="${setting.section}.${setting.key}" class="element-row" data-is-modified="${!!currentValue && currentValue !== setting.defaultValue}" data-setting="${encodeURIComponent(JSON.stringify(setting))}">
         <div class="number-input-wrapper">
           <input
             type="number"
@@ -406,7 +412,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       </option>`
     ).join('');
     return `
-      <div id="${setting.section}.${setting.key}" class="element-row" data-setting="${encodeURIComponent(JSON.stringify(setting))}">
+      <div id="${setting.section}.${setting.key}" class="element-row" data-is-modified="${!!value && value !== setting.defaultValue}" data-setting="${encodeURIComponent(JSON.stringify(setting))}">
         <select class="select-input input-style">
           <option selected value="" disabled>
           </option>${options}
@@ -418,7 +424,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   private getTextInput(setting: ElementSetting): string {
     const value = SettingsManager.getSettingValue(setting.section, setting.key) || setting.defaultValue || '';
     return `
-      <div id="${setting.section}.${setting.key}" class="element-row" data-setting="${encodeURIComponent(JSON.stringify(setting))}">
+      <div id="${setting.section}.${setting.key}" class="element-row" data-is-modified="${!!value && value !== setting.defaultValue}" data-setting="${encodeURIComponent(JSON.stringify(setting))}">
         <input
           type="text"
           class="string-input input-style"

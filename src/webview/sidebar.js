@@ -220,6 +220,12 @@
   function replaceElement(section, key, elementType, options, newHtml) {
         const target = document.getElementById(`${section}.${key}`);
         target.outerHTML = newHtml;
+
+        // Read the data-is-modified from the new element after replacement
+        const newElement = document.getElementById(`${section}.${key}`);
+        const isModified = newElement?.getAttribute('data-is-modified');
+        toggleModifiedClass(key, isModified === 'true');
+        
         const dynamicId = `${section}.${key}`;
         const escapedId = CSS.escape(dynamicId);
         const selector = `#${escapedId} `;
@@ -251,6 +257,7 @@
   function handleSelectChange(event) {
     const select = event.currentTarget;
     const setting = getClosestDataSetting(event);
+    toggleModifiedClass(setting.key, setting.defaultValue != select.value);
     vscode.postMessage({ type: 'setString', setting, value: select.value });
   }
 
@@ -272,6 +279,9 @@
     }
     
     input.value = value;
+
+    const setting = getClosestDataSetting(event);
+    toggleModifiedClass(setting.key, true);
   }
 
   function handleGroupHover(event) {
@@ -322,8 +332,15 @@
     if (picker) {
       picker.title = value;
     }
+
+    toggleModifiedClass(setting.key, true);
     
     vscode.postMessage({ type: 'setColor', setting, color: value });
+  }
+
+  function toggleModifiedClass(key, isModified) {
+    const label = document.querySelector(`.setting-item[data-key="${CSS.escape(key)}"]`);
+    label.classList.toggle('modified', isModified);
   }
 
   function handleColorRgbChange(event) {
@@ -341,6 +358,8 @@
     
     // Combine RGB and alpha: #RRGGBBAA
     const fullColor = rgbColor + opacityHex;
+
+    toggleModifiedClass(setting.key, true);
     vscode.postMessage({ type: 'setColor', setting, color: fullColor });
   }
 
@@ -362,6 +381,7 @@
     // Combine RGB and alpha: #RRGGBBAA
     const fullColor = colorRgb + opacityHex;
     
+    toggleModifiedClass(setting.key, true);
     vscode.postMessage({ type: 'setColor', setting, color: fullColor });
   }
 
@@ -371,12 +391,14 @@
       return;
     }
     const setting = getClosestDataSetting(event);
+    toggleModifiedClass(setting.key, setting.defaultValue != input.value);
     vscode.postMessage({ type: 'setNumber', setting, value: input.value });
   }
 
   function handleStringChange(event) {
     const input = event.currentTarget;
     const setting = getClosestDataSetting(event);
+    toggleModifiedClass(setting.key, setting.defaultValue != input.value);
     vscode.postMessage({ type: 'setString', setting, value: input.value });
   }
 
@@ -429,7 +451,7 @@
         return;
       }
     } catch (e) {
-        vscode.postMessage({ type: 'consoleError', message: `[${msg.type}]: ${e.message}` });
+        vscode.postMessage({ type: 'consoleError', message: `[${msg.type}] ${e.message}` });
     }
   });
 

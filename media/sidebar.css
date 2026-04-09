@@ -21,7 +21,8 @@ input[type="number"] {
 }
 
 .select-input, .string-input {
-  margin-right: 6px;
+  margin: 2px 6px 2px 0;
+  padding: 4px;
 }
 
 /* Up and down arrow buttons */
@@ -54,7 +55,6 @@ input[type="number"] {
 .number-up:hover,
 .number-down:hover {
   color: var(--vscode-focusBorder);
-  background-color: var(--vscode-input-background);
 }
 
 /* Base layout and theme-aware colors */
@@ -247,26 +247,27 @@ body.vscode-light .button-group .config-btn:disabled {
   padding: 0 16px 16px 16px;
 }
 
-.setting-label {
-  padding: 8px;
+.setting-container {
+  padding: 4px 8px;
+}
+
+.setting-container:hover {
+  background-color: var(--vscode-list-hoverBackground);
 }
 
 .modified {
   border-left: 2px solid var(--vscode-button-background);
+  padding-left: 6px!important;
 }
 
 .setting-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 5px 8px;
+  padding: 2px 8px;
   border-bottom: 1px solid var(--vscode-editorWidget-border);
   font-size: 0.98em;
   cursor: pointer;
-}
-
-.setting-item:hover {
-  background-color: var(--vscode-list-hoverBackground);
 }
 
 .setting-item:last-child {
@@ -278,13 +279,13 @@ body.vscode-light .button-group .config-btn:disabled {
 }
 
 .number-input, .string-input {
-  margin-left: 10px;
   min-width: 40px;
   border-radius: 4px;
   border: 1px solid var(--vscode-editorWidget-border);
   background-color: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
-  padding: 2px 6px;
+  padding: 4px 6px;
+  margin: 4px 0 4px 10px;
   font-size: var(--vscode-font-size, 13px);
   transition: border 0.2s;
 }

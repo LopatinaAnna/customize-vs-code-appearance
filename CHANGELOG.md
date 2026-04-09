@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.17] - 2026-04-09
+
+### Improved
+
+- Refactored sidebar settings UI for improved interaction and modified state handling.
+
 ## [1.0.16] - 2026-04-09
 
 ### Improved
