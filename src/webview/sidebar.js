@@ -21,29 +21,26 @@
   /**
    * Computes all theme colors from the provided list of color keys.
    */
-  function computeAllThemeColors(colorKeys) {
-    vscode.postMessage({ type: 'consoleLog', message: `Received request to compute theme colors` });
+  function computeThemeColorsByKeys(colorKeys) {
+    vscode.postMessage({ type: 'consoleLog', message: `Received request to compute theme colors ${colorKeys.length}` });
 
     colorKeys = colorKeys || [];
-    let hasChanges = false;
+    let requestedThemeColors = {};
+
     colorKeys.forEach(key => {
       try {
         const newColor = computeThemeColor(key);
-        if (!themeColors || themeColors[key] !== newColor) {
-          themeColors[key] = newColor;
-          hasChanges = true;
-        }
+        themeColors[key] = newColor;
+        requestedThemeColors[key] = newColor;
       } catch (e) {
         console.warn(`Failed to compute theme color for ${key}:`, e);
       }
     });
 
-     if (hasChanges) {
-      vscode.postMessage({ type: 'consoleLog', message: `Theme colors updated.` });
-      sendThemeColors();
-    } else {
-      vscode.postMessage({ type: 'consoleLog', message: `No changes in theme colors.` });
-    }
+    vscode.postMessage({ type: 'consoleLog', message: `Computed theme colors: ${Object.keys(requestedThemeColors).length}` });
+     if (Object.keys(requestedThemeColors).length > 0) {
+      sendThemeColors(requestedThemeColors);
+     }
   }
 
   /**
@@ -63,8 +60,8 @@
     return rgbToHex(computedColor);
   }
 
-  function sendThemeColors() {
-    vscode.postMessage({ type: 'themeColorsReady', colors: themeColors });
+  function sendThemeColors(requestedThemeColors) {
+    vscode.postMessage({ type: 'themeColorsReady', colors: requestedThemeColors });
   }
 
   function setThemeClass(themeClass) {
@@ -395,38 +392,44 @@
 
   window.addEventListener('message', event => {
     const msg = event.data;
-    if (msg.type === 'workspaceAvailability') {
-      const btnGlobal = document.getElementById('btn-global');
-      const btnWorkspace = document.getElementById('btn-workspace');
-      if (btnGlobal) {
-        btnGlobal.disabled = !!msg.available;
-        btnGlobal.title = msg.available ? 'Global (User) customizations are not available. Close folder or workspace to proceed.' : '';
-        // const icon = document.querySelector('.scope-control .scope-reset[data-target="Global"]');
-        // if (icon) icon.classList.toggle('disabled', btnGlobal.disabled);
-      }
-      if (btnWorkspace) {
-        btnWorkspace.disabled = !msg.available;
-        btnWorkspace.title = !msg.available ? 'Workspace customizations are not available without an open folder or workspace.' : '';
-        const icon = document.querySelector('.scope-control .scope-reset[data-target="Workspace"]');
-        if (icon) {
-          icon.classList.toggle('disabled', btnWorkspace.disabled);
-          icon.title = btnWorkspace.title;
+    try {
+      if (msg.type === 'workspaceAvailability') {
+        const btnGlobal = document.getElementById('btn-global');
+        const btnWorkspace = document.getElementById('btn-workspace');
+        if (btnGlobal) {
+          btnGlobal.disabled = !!msg.available;
+          btnGlobal.title = msg.available ? 'Global (User) customizations are not available. Close folder or workspace to proceed.' : '';
+          // const icon = document.querySelector('.scope-control .scope-reset[data-target="Global"]');
+          // if (icon) icon.classList.toggle('disabled', btnGlobal.disabled);
         }
+        if (btnWorkspace) {
+          btnWorkspace.disabled = !msg.available;
+          btnWorkspace.title = !msg.available ? 'Workspace customizations are not available without an open folder or workspace.' : '';
+          const icon = document.querySelector('.scope-control .scope-reset[data-target="Workspace"]');
+          if (icon) {
+            icon.classList.toggle('disabled', btnWorkspace.disabled);
+            icon.title = btnWorkspace.title;
+          }
+        }
+        if (msg.configTarget) {
+          setActiveConfigButton(msg.configTarget);
+        }
+        return;
       }
-      if (msg.configTarget) setActiveConfigButton(msg.configTarget);
-      return;
-    }
-    
-    if (msg.type === 'setTheme') {
-      vscode.postMessage({ type: 'consoleLog', message: `Received request to set theme: '${msg.theme}'` });
-      setThemeClass(msg.theme);
-      setTimeout(() => computeAllThemeColors(msg.colorKeys), 100);
-      return;
-    }
-    
-    if (msg.type === 'replaceElement') {
-      replaceElement(msg.section, msg.key, msg.elementType, msg.options, msg.newHtml);
-      return;
+      
+      if (msg.type === 'setTheme') {
+        vscode.postMessage({ type: 'consoleLog', message: `Received request to set theme ${msg.theme}` });
+        setThemeClass(msg.theme);
+        setTimeout(() => computeThemeColorsByKeys(msg.colorKeys), 100);
+        return;
+      }
+      
+      if (msg.type === 'replaceElement') {
+        replaceElement(msg.section, msg.key, msg.elementType, msg.options, msg.newHtml);
+        return;
+      }
+    } catch (e) {
+        vscode.postMessage({ type: 'consoleError', message: `[${msg.type}]: ${e.message}` });
     }
   });
 

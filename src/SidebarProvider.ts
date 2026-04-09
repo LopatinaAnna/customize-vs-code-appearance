@@ -7,7 +7,6 @@ import { ElementSetting } from './interfaces/ElementSetting';
 export class SidebarProvider implements vscode.WebviewViewProvider {
   private themeColors: Record<string, string> = {};
   private currentTheme: string = '';
-  private isRefreshing: boolean = false;
 
   constructor(private readonly extensionUri: vscode.Uri) { }
 
@@ -42,41 +41,61 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   }
 
   private setupThemeListener(webviewView: vscode.WebviewView): void {
-    const postTheme = (kind: vscode.ColorThemeKind) => {
-      const themeClass = kind === vscode.ColorThemeKind.Dark ? 'vscode-dark'
-        : kind === vscode.ColorThemeKind.Light ? 'vscode-light'
-        : 'vscode-high-contrast';
-      
-      const colorKeys: string[] = [];
-      ELEMENTS.forEach(el => {
-        el.settings.forEach(setting => {
-          if (setting.type === 'color') {
-            colorKeys.push(setting.key.replace(/\./g, '-'));
-          }
-        });
-      });
-
-      webviewView.webview.postMessage({ 
-        type: 'setTheme', 
-        theme: themeClass,
-        colorKeys: colorKeys
-      });
-    };
-
-    postTheme(vscode.window.activeColorTheme.kind);
+    this.requestFreshThemeColors(webviewView);
 
     webviewView.onDidChangeVisibility(async () => {
       if (webviewView.visible) {
-        postTheme(vscode.window.activeColorTheme.kind);
+        this.requestFreshThemeColors(webviewView);
       }
     });
 
     vscode.window.onDidChangeActiveColorTheme(async e => {
-      if (this.currentTheme !== await SettingsManager.getColorTheme()) {
+      const newTheme = await SettingsManager.getColorTheme();
+      if (this.currentTheme !== newTheme) {
         console.log('Active color theme changed:', e.kind);
-        this.currentTheme = await SettingsManager.getColorTheme();
-        postTheme(vscode.window.activeColorTheme.kind);
+        this.currentTheme = newTheme;
+        this.requestFreshThemeColors(webviewView);
       }
+    });
+  }
+
+  private requestFreshThemeColors(webviewView: vscode.WebviewView, setting?: ElementSetting, groupLabel?: string): void {
+    const themeClass = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ? 'vscode-dark'
+      : vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Light ? 'vscode-light'
+      : 'vscode-high-contrast';
+    
+    const colorKeys: string[] = [];
+    
+    if (setting) {
+      // Compute color for the single element being reset
+      if (setting.type === 'color') {
+        colorKeys.push(this.toThemeFormat(setting.key));
+      }
+    } else if (groupLabel) {
+      // Compute colors for the group being reset
+      const group = ELEMENTS.find(el => el.label === groupLabel);
+      if (group) {
+        group.settings.forEach(s => {
+          if (s.type === 'color') {
+            colorKeys.push(this.toThemeFormat(s.key));
+          }
+        });
+      }
+    } else {
+      // Compute all colors (for full scope resets and theme changes)
+      ELEMENTS.forEach(el => {
+        el.settings.forEach(s => {
+          if (s.type === 'color') {
+            colorKeys.push(this.toThemeFormat(s.key));
+          }
+        });
+      });
+    }
+
+    webviewView.webview.postMessage({ 
+      type: 'setTheme', 
+      theme: themeClass,
+      colorKeys: colorKeys
     });
   }
 
@@ -86,9 +105,6 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
   private setupMessageHandler(webviewView: vscode.WebviewView): void {
     webviewView.webview.onDidReceiveMessage(async (msg) => {
-      if (this.isRefreshing) {
-        return;
-      }
       try {
         switch (msg.type) {
           case 'toggleHighlighting':
@@ -118,48 +134,31 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             break;
           case 'resetScope':
             this.withConfirmation(`Are you sure you want to reset ${msg.target} settings?`, async () => {
-              vscode.window.withProgress({
-                location: vscode.ProgressLocation.Notification,
-                title: "Resetting settings...",
-                cancellable: false
-              }, async () => {
-                this.isRefreshing = true;
-                SettingsManager.resetScope(msg.target);
-                await SettingsManager.applyEffectiveColors();
-                await this.refreshUI(webviewView);
-                vscode.window.showInformationMessage(`${msg.target} settings reset`);
-              });
+              SettingsManager.resetScope(msg.target);
+              await SettingsManager.applyEffectiveColors();
+              this.requestFreshThemeColors(webviewView);
             });
             break;
           case 'resetGroup':
             this.withConfirmation(`Are you sure you want to reset ${msg.label} settings?`, async () => {
               SettingsManager.resetGroup(msg.label);
               await SettingsManager.applyEffectiveColors();
-              await this.refreshGroupUI(webviewView, msg.label);
-              vscode.window.showInformationMessage(`${msg.label} settings reset`);
+              this.requestFreshThemeColors(webviewView, undefined, msg.label);
             });
             break;
           case 'resetElement':
             SettingsManager.resetElement(msg.setting);
             await SettingsManager.applyEffectiveColors();
-            await this.refreshElementUI(webviewView, msg.setting);
-            vscode.window.showInformationMessage(`${msg.setting.label} reset`);
+            this.requestFreshThemeColors(webviewView, msg.setting);
             break;
           case 'themeColorsReady':
-            const newColors = msg.colors || {};
-            this.themeColors = newColors;
-            if (Object.keys(this.themeColors).length > 0 && webviewView) {
-              vscode.window.withProgress({
-                location: vscode.ProgressLocation.Notification,
-                title: "Refreshing settings...",
-                cancellable: false
-              }, async () => {
-                await this.refreshUI(webviewView);
-              });
-            }
+            this.refreshUI(webviewView, msg.colors);
             break;
           case 'consoleLog':
             console.log(msg.message);
+            break;
+          case 'consoleError':
+            console.error(msg.message);
             break;
           default:
             console.warn('Unknown message type:', msg.type);
@@ -177,37 +176,27 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private async refreshUI(webviewView: vscode.WebviewView): Promise<void> {
-    this.isRefreshing = true;
-    await SettingsManager.applyEffectiveColors();
-    for (const element of ELEMENTS) {
-      await this.refreshGroupUI(webviewView, element.label);
-    }
-    this.refreshWorkspaceAvailability(webviewView);
-    this.isRefreshing = false;
-  }
-
-  private async refreshGroupUI(webviewView: vscode.WebviewView, label: string): Promise<void> {
-    console.log(`Refreshing UI for group: ${label}`);
-    const group = ELEMENTS.find(g => g.label === label);
-    if (group) {
-      for (const setting of group.settings) {
-        await this.refreshElementUI(webviewView, setting);
+  private refreshUI(webviewView: vscode.WebviewView, newColors: Record<string, string>): void {
+    vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: "Refreshing settings...",
+      cancellable: true
+    }, async (progress, token) => {
+      token.onCancellationRequested(() => {
+          console.warn("User cancelled the operation");
+      });
+      for (const key in newColors) {
+        const element = ELEMENTS.flatMap(g => g.settings).find(setting => setting.key  === this.toConfigFormat(key));
+        if (element) {
+          this.themeColors[key] = newColors[key];
+          this.refreshElementUI(webviewView, element);
+        }
       }
-    }
-    let elementsToRefresh = ELEMENTS.find(g => g.label === label);
-    if (!elementsToRefresh) {
-      console.warn(`No group found with label ${label}`);
-      return;
-    }
-    
-    elementsToRefresh.settings.forEach(setting => {
-      this.refreshElementUI(webviewView, setting);
     });
   }
 
-  private async refreshElementUI(webviewView: vscode.WebviewView, setting: ElementSetting): Promise<void> {
-    console.log(`Refreshing UI for element: ${setting.section}.${setting.key}`);
+  private refreshElementUI(webviewView: vscode.WebviewView, setting: ElementSetting): void {
+    //console.log(`Refreshing UI for element: ${setting.section}.${setting.key}`);
     const elementHtml = this.getInputHtml(setting);
     webviewView.webview.postMessage({
       type: 'replaceElement',
@@ -233,8 +222,16 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
    * Converts the key format (e.g., "titleBar.activeBackground") to theme format (e.g., "titleBar-activeBackground").
    */
   private getThemeColor(colorKey: string): string | undefined {
-    const themeKey = colorKey.replace(/\./g, '-');
+    const themeKey = this.toThemeFormat(colorKey);
     return this.themeColors[themeKey];
+  }
+  
+  private toConfigFormat(key: string): string {
+    return key.replace(/-/g, '.');
+  }
+  
+  private toThemeFormat(key: string): string {
+    return key.replace(/\./g, '-');
   }
 
   private async getHtml(webview: vscode.Webview, elements: ElementDefinition[]): Promise<string> {
@@ -256,9 +253,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   private generateElementHtml(el: ElementDefinition, idx: number): string {
     const settingsHtml = el.settings.map(setting => `
       <div class="setting-item">
-        <span class="setting-label" data-key="${setting.key}" title="${setting.description}">
+        <div class="setting-label modified" data-key="${setting.key}" title="${setting.description}">
           ${setting.label}
-        </span>
+        </div>
         ${this.getInputHtml(setting)}
       </div>`).join('');
 

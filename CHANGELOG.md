@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.16] - 2026-04-09
+
+### Improved
+
+- Refactored theme colors handling and improved UI refresh logic.
+
 ## [1.0.15] - 2026-04-09
 
 ### Added

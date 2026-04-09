@@ -144,7 +144,7 @@ export class SettingsManager {
    */
   public static resetElement(setting: ElementSetting, config?: vscode.WorkspaceConfiguration): void {
     config = config || vscode.workspace.getConfiguration();
-    console.log(`Resetting element: ${setting.section}.${setting.key}`);
+    //console.log(`Resetting element: ${setting.section}.${setting.key}`);
     config.update(`${setting.section}.${setting.key}`, undefined, SettingsManager.getVscodeConfigTarget());
     this.removeSetting(setting.section, setting.key);
     delete this.tempHighlights[setting.key];
