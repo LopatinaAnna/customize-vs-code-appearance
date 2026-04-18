@@ -26,7 +26,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   }
 
   private refreshWorkspaceAvailability(webviewView: vscode.WebviewView): void {
-    const workspaceAvailable = !!vscode.workspace.workspaceFolders?.length;
+    const workspaceAvailable = !!vscode.workspace.workspaceFolders?.length || vscode.workspace.workspaceFile;
     if (workspaceAvailable && SettingsManager.getConfigTarget() === 'Global') {
       SettingsManager.setConfigTarget('Workspace');
     }
@@ -65,11 +65,17 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       : 'vscode-high-contrast';
     
     const colorKeys: string[] = [];
+    const colorsToUpdateFromBase: Record<string, string> = {};
     
     if (setting) {
       // Compute color for the single element being reset
       if (setting.type === 'color') {
-        colorKeys.push(this.toThemeFormat(setting.key));
+        const baseSettingValue = SettingsManager.getSettingValue(setting.section, setting.key);
+        if (baseSettingValue) {
+          colorsToUpdateFromBase[setting.key] = baseSettingValue;
+        } else {
+          colorKeys.push(this.toThemeFormat(setting.key));
+        }
       }
     } else if (groupLabel) {
       // Compute colors for the group being reset
@@ -77,7 +83,12 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       if (group) {
         group.settings.forEach(s => {
           if (s.type === 'color') {
-            colorKeys.push(this.toThemeFormat(s.key));
+            const baseSettingValue = SettingsManager.getSettingValue(s.section, s.key);
+            if (baseSettingValue) {
+              colorsToUpdateFromBase[s.key] = baseSettingValue;
+            } else {
+              colorKeys.push(this.toThemeFormat(s.key));
+            }
           }
         });
       }
@@ -86,17 +97,34 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       ELEMENTS.forEach(el => {
         el.settings.forEach(s => {
           if (s.type === 'color') {
-            colorKeys.push(this.toThemeFormat(s.key));
+            const baseSettingValue = SettingsManager.getSettingValue(s.section, s.key);
+            if (baseSettingValue) {
+              colorsToUpdateFromBase[s.key] = baseSettingValue;
+            } else {
+              colorKeys.push(this.toThemeFormat(s.key));
+            }
           }
         });
       });
     }
 
-    webviewView.webview.postMessage({ 
-      type: 'setTheme', 
-      theme: themeClass,
-      colorKeys: colorKeys
-    });
+    if (Object.keys(colorsToUpdateFromBase).length > 0) {
+      for (const key in colorsToUpdateFromBase) {
+        const element = ELEMENTS.flatMap(g => g.settings).find(setting => setting.key  === this.toConfigFormat(key));
+        if (element) {
+          this.themeColors[key] = colorsToUpdateFromBase[key];
+          this.refreshElementUI(webviewView, element);
+        }
+      }
+    }
+
+    if (colorKeys.length > 0) {
+      webviewView.webview.postMessage({ 
+        type: 'setTheme', 
+        theme: themeClass,
+        colorKeys: colorKeys
+      });
+    }
   }
 
   private setupStateManagement(webviewView: vscode.WebviewView): void {

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.19] - 2026-04-18
+
+### Added
+
+- Support of Editor Syntax customization.
+
 ## [1.0.17] - 2026-04-09
 
 ### Improved

@@ -5,6 +5,7 @@ import { ElementSetting } from './interfaces/ElementSetting';
 
 const HIGHLIGHT_COLOR = '#9a9a9aff';
 const COLOR_CUSTOMIZATION_KEY = 'workbench.colorCustomizations';
+const TOKEN_COLOR_CUSTOMIZATIONS = 'editor.tokenColorCustomizations';
 const COLOR_THEME_KEY = 'workbench.colorTheme';
 
 type SettingsMap = Record<string, any>;
@@ -172,24 +173,43 @@ export class SettingsManager {
         try {
           this.pendingWrite = null;
           const config = vscode.workspace.getConfiguration();
-          const effective: SettingsMap = {};
+          const effectiveColors: SettingsMap = {};
+          const effectiveTokenColors: SettingsMap = {};
 
           // Apply persistent colors
           this.baseSettings.forEach((setting) => {
-            if (setting.value !== undefined && setting.section === COLOR_CUSTOMIZATION_KEY) {
-              effective[setting.key] = setting.value;
+            if (setting.value !== undefined) {
+              if (setting.section === COLOR_CUSTOMIZATION_KEY) {
+                effectiveColors[setting.key] = setting.value;
+              } else if (setting.section === TOKEN_COLOR_CUSTOMIZATIONS) {
+                effectiveTokenColors[setting.key] = setting.value;
+              }
             }
           });
 
           // Apply temporary highlights (overrides persistent)
           Object.entries(this.tempHighlights).forEach(([key, value]) => {
-            effective[key] = value;
+            const isTokenColorKey = ELEMENTS.some(element =>
+              element.settings.some(setting => 
+                setting.section === TOKEN_COLOR_CUSTOMIZATIONS && setting.key === key
+              )
+            );
+            
+            if (isTokenColorKey) {
+              effectiveTokenColors[key] = value;
+            } else {
+              effectiveColors[key] = value;
+            }
           });
 
           this.lastWritePromise = this.lastWritePromise
             .then(() => {
-              console.log('UPDATING color customizations with:', effective);
-              return config.update(COLOR_CUSTOMIZATION_KEY, effective, this.toVscodeConfigTarget(this.configTarget));
+              console.log('UPDATING color customizations with:', effectiveColors);
+              return config.update(COLOR_CUSTOMIZATION_KEY, effectiveColors, this.toVscodeConfigTarget(this.configTarget));
+            })
+            .then(() => {
+              console.log('UPDATING token color customizations with:', effectiveTokenColors);
+              return config.update(TOKEN_COLOR_CUSTOMIZATIONS, effectiveTokenColors, this.toVscodeConfigTarget(this.configTarget));
             })
             .catch((err) => console.error('Failed to update color customizations:', err))
             .finally(() => resolve());
