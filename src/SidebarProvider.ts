@@ -13,6 +13,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   public async resolveWebviewView(webviewView: vscode.WebviewView): Promise<void> {
     try {
       SettingsManager.loadBaseSettings();
+      SettingsManager.loadAppSettings();
       webviewView.webview.options = { enableScripts: true };
       webviewView.webview.html = await this.getHtml(webviewView.webview, ELEMENTS);
 
@@ -136,7 +137,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       try {
         switch (msg.type) {
           case 'toggleHighlighting':
-            SettingsManager.isHighlightingEnabled = msg.enabled;
+            await SettingsManager.setAppSetting('enableHoverHighlight', msg.enabled);
             break;
           case 'hover':
             await SettingsManager.onHover(msg.key);
@@ -330,11 +331,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                 <span class="scope-reset" data-target="Global" title="Reset customizations for elements listed below in the Global (User) scope.">&#x21bb;</span>
               </div>
               <div class="scope-control">
-                <button id="btn-workspace" type="button" class="config-btn" aria-pressed="false">Workspace</button>
-                <span class="scope-reset" data-target="Workspace" title="Reset customizations for elements listed below in the Workspace scope.">&#x21bb;</span>
+                <button id="btn-workspace" type="button" class="config-btn" aria-pressed="false">Workspace/Folder</button>
+                <span class="scope-reset" data-target="Workspace" title="Reset customizations for elements listed below in the Workspace/Folder scope.">&#x21bb;</span>
               </div>
               <div class="scope-control">
-                <input type="checkbox" id="enableHighlighting" class="checkbox-input" checked>
+                <input type="checkbox" id="enableHighlighting" class="checkbox-input" ${SettingsManager.getAppSettingValue('enableHoverHighlight') ? 'checked' : ''} />
                 <label for="enableHighlighting">Enable Highlighting</label>
               </div>
             </nav>

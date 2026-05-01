@@ -5,8 +5,9 @@ import { ElementSetting } from './interfaces/ElementSetting';
 
 const HIGHLIGHT_COLOR = '#9a9a9aff';
 const COLOR_CUSTOMIZATION_KEY = 'workbench.colorCustomizations';
-const TOKEN_COLOR_CUSTOMIZATIONS = 'editor.tokenColorCustomizations';
+const TOKEN_COLOR_CUSTOMIZATIONS_KEY = 'editor.tokenColorCustomizations';
 const COLOR_THEME_KEY = 'workbench.colorTheme';
+const APP_SETTINGS_KEY = 'customizeVsCodeAppearance';
 
 type SettingsMap = Record<string, any>;
 type ConfigTarget = 'Global' | 'Workspace';
@@ -16,8 +17,8 @@ export class SettingsManager {
   private static pendingWrite: NodeJS.Timeout | null = null;
   private static lastWritePromise: Promise<void> = Promise.resolve();
   private static configTarget: ConfigTarget = 'Global';
-  public static isHighlightingEnabled: boolean = true;
-  public static baseSettings: ItemSetting[] = [];
+  private static baseSettings: ItemSetting[] = [];
+  private static appSettings: Record<string, any> = {};
 
   /**
    * Maps a string config target to the corresponding VS Code enum.
@@ -71,11 +72,34 @@ export class SettingsManager {
     }
   }
 
+  public static loadAppSettings(): void {
+    try {
+      const config = vscode.workspace.getConfiguration();
+      const settings = config.get<Record<string, string | boolean>>(APP_SETTINGS_KEY, {});
+      Object.entries(settings || {}).forEach(([key, value]) => {
+        console.log(`Push setting: ${APP_SETTINGS_KEY} ${key} ${value}`);
+        this.appSettings[key] = value;
+      });
+    } catch (err) {
+      console.error('Error loading app settings:', err);
+    }
+  }
+
+  public static getAppSettingValue(key: string): any {
+    return this.appSettings[key];
+  }
+
+  public static async setAppSetting(key: string, value: any): Promise<void> {
+    const config = vscode.workspace.getConfiguration();
+    await config.update(`${APP_SETTINGS_KEY}.${key}`, value, vscode.ConfigurationTarget.Global);
+    this.appSettings[key] = value;
+  }
+
   /**
    * Temporarily highlights an element on hover.
    */
   public static async onHover(key: string): Promise<void> {
-    if (!this.isHighlightingEnabled || this.tempHighlights[key]) return;
+    if (!this.getAppSettingValue('enableHoverHighlight') || this.tempHighlights[key]) return;
     this.tempHighlights[key] = HIGHLIGHT_COLOR;
     await this.applyEffectiveColors();
   }
@@ -84,7 +108,7 @@ export class SettingsManager {
    * Removes the temporary highlight when the mouse leaves.
    */
   public static async onLeave(key: string): Promise<void> {
-    if (!this.isHighlightingEnabled || !this.tempHighlights[key]) return;
+    if (!this.getAppSettingValue('enableHoverHighlight') || !this.tempHighlights[key]) return;
     delete this.tempHighlights[key];
     await this.applyEffectiveColors();
   }
@@ -181,7 +205,7 @@ export class SettingsManager {
             if (setting.value !== undefined) {
               if (setting.section === COLOR_CUSTOMIZATION_KEY) {
                 effectiveColors[setting.key] = setting.value;
-              } else if (setting.section === TOKEN_COLOR_CUSTOMIZATIONS) {
+              } else if (setting.section === TOKEN_COLOR_CUSTOMIZATIONS_KEY) {
                 effectiveTokenColors[setting.key] = setting.value;
               }
             }
@@ -191,7 +215,7 @@ export class SettingsManager {
           Object.entries(this.tempHighlights).forEach(([key, value]) => {
             const isTokenColorKey = ELEMENTS.some(element =>
               element.settings.some(setting => 
-                setting.section === TOKEN_COLOR_CUSTOMIZATIONS && setting.key === key
+                setting.section === TOKEN_COLOR_CUSTOMIZATIONS_KEY && setting.key === key
               )
             );
             
@@ -209,7 +233,7 @@ export class SettingsManager {
             })
             .then(() => {
               console.log('UPDATING token color customizations with:', effectiveTokenColors);
-              return config.update(TOKEN_COLOR_CUSTOMIZATIONS, effectiveTokenColors, this.toVscodeConfigTarget(this.configTarget));
+              return config.update(TOKEN_COLOR_CUSTOMIZATIONS_KEY, effectiveTokenColors, this.toVscodeConfigTarget(this.configTarget));
             })
             .catch((err) => console.error('Failed to update color customizations:', err))
             .finally(() => resolve());

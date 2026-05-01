@@ -61,6 +61,16 @@
           "icon": "media/edit-sparkle.svg"
         }
       ]
+    },
+    "configuration": {
+      "title": "Extension Configuration",
+      "properties": {
+        "customizeVsCodeAppearance.enableHoverHighlight": {
+          "type": "boolean",
+          "default": true,
+          "description": "Indicates whether hover highlighting is enabled."
+        }
+      }
     }
   },
   "scripts": {
