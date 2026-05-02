@@ -7,7 +7,7 @@
 			"ESNext",
 			"ES2022"
 		],
-		"types": ["node"],
+		"types": ["node", "mocha"],
 		"outDir": "out",
 		"sourceMap": true,
 		"strict": true,
@@ -16,5 +16,9 @@
 	"exclude": [
 		"node_modules",
 		".vscode-test"
+	],
+	"include": [
+		"src/**/*",
+		"src/test/**/*"
 	]
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.20] - 2026-05-02
+
+### Added
+
+- Extension custom configuration settings management.
+- Store Enable Highlighting value as a custom configuration setting.
+
 ## [1.0.19] - 2026-04-18
 
 ### Added

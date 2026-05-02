@@ -7,7 +7,9 @@
    */
   function rgbToHex(rgb) {
     const match = rgb.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/);
-    if (!match) return '#000000';
+    if (!match) {
+      return '#000000';
+    }
     
     const r = parseInt(match[1]);
     const g = parseInt(match[2]);
@@ -78,7 +80,9 @@
   function attachListeners() {
     addListeners('.element-group-container', 'click', handleExpandCollapse);
     addListeners('.element-group-container', 'keydown', function(e) {
-      if (e.key === 'Enter' || e.key === ' ') handleExpandCollapse(e);
+      if (e.key === 'Enter' || e.key === ' ') {
+        handleExpandCollapse(e);
+      }
     });
 
     addListeners('.scope-reset', 'click', handleScopeReset);
@@ -164,7 +168,9 @@
       const button = event.currentTarget;
       const wrapper = button.closest('.number-input-wrapper');
       const input = wrapper.querySelector('.number-input');
-      if (!input) return;
+      if (!input) {
+        return;
+      }
 
       let newValue = parseInt(input.value) || 5; // Start from 5 so that the first click sets it to 6
       const min = parseInt(input.min) || 6;
@@ -180,7 +186,7 @@
 
       const changeEvent = new Event('input', { bubbles: true });
       input.dispatchEvent(changeEvent);
-    }
+    };
   }
   
   function handleExpandCollapse(event) {
@@ -257,7 +263,7 @@
   function handleSelectChange(event) {
     const select = event.currentTarget;
     const setting = getClosestDataSetting(event);
-    toggleModifiedClass(setting.key, setting.defaultValue != select.value);
+    toggleModifiedClass(setting.key, setting.defaultValue !== select.value);
     vscode.postMessage({ type: 'setString', setting, value: select.value });
   }
 
@@ -391,14 +397,14 @@
       return;
     }
     const setting = getClosestDataSetting(event);
-    toggleModifiedClass(setting.key, setting.defaultValue != input.value);
+    toggleModifiedClass(setting.key, setting.defaultValue !== input.value);
     vscode.postMessage({ type: 'setNumber', setting, value: input.value });
   }
 
   function handleStringChange(event) {
     const input = event.currentTarget;
     const setting = getClosestDataSetting(event);
-    toggleModifiedClass(setting.key, setting.defaultValue != input.value);
+    toggleModifiedClass(setting.key, setting.defaultValue !== input.value);
     vscode.postMessage({ type: 'setString', setting, value: input.value });
   }
 
@@ -406,8 +412,12 @@
     const btnGlobal = document.getElementById('btn-global');
     const btnWorkspace = document.getElementById('btn-workspace');
     [btnGlobal, btnWorkspace].forEach(btn => btn?.classList.remove('active'));
-    if (target === 'Global') btnGlobal?.classList.add('active');
-    if (target === 'Workspace') btnWorkspace?.classList.add('active');
+    if (target === 'Global') {
+      btnGlobal?.classList.add('active');
+    }
+    if (target === 'Workspace') {
+      btnWorkspace?.classList.add('active');
+    }
   }
 
   attachListeners();

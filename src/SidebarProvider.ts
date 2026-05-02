@@ -10,22 +10,49 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
   constructor(private readonly extensionUri: vscode.Uri) { }
 
+  /**
+   * Resolves and initializes the WebView for the sidebar.
+   *
+   * Sets up HTML content, event listeners, state management, and message handling.
+   * Initializes settings from VS Code configuration and establishes theme listeners.
+   *
+   * @param webviewView - The WebView view to initialize
+   * @throws Shows warning notification to user if critical initialization fails
+   */
   public async resolveWebviewView(webviewView: vscode.WebviewView): Promise<void> {
     try {
       SettingsManager.loadBaseSettings();
       SettingsManager.loadAppSettings();
-      webviewView.webview.options = { enableScripts: true };
+      webviewView.webview.options = {
+        enableScripts: true,
+        localResourceRoots: [this.extensionUri]
+      };
       webviewView.webview.html = await this.getHtml(webviewView.webview, ELEMENTS);
 
       this.currentTheme = SettingsManager.getColorTheme();
       this.setupThemeListener(webviewView);
       this.setupStateManagement(webviewView);
       this.setupMessageHandler(webviewView);
+      
+      console.log('Initialized WebView successfully');
     } catch (err) {
-      console.error('Failed to resolve webview view:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('Failed to resolve webview view:', message);
+      vscode.window.showWarningMessage(
+        'Failed to initialize the Customize VS Code Appearance sidebar. Some features may not work.',
+        'Dismiss'
+      );
     }
   }
 
+  /**
+   * Updates the sidebar with current workspace availability and adjusts configuration target.
+   *
+   * Automatically switches to Workspace scope when a workspace is open, and back to Global
+   * when no workspace is available. Notifies the WebView of scope availability.
+   *
+   * @param webviewView - The WebView to update
+   */
   private refreshWorkspaceAvailability(webviewView: vscode.WebviewView): void {
     const workspaceAvailable = !!vscode.workspace.workspaceFolders?.length || vscode.workspace.workspaceFile;
     if (workspaceAvailable && SettingsManager.getConfigTarget() === 'Global') {
@@ -41,6 +68,16 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     });
   }
 
+  /**
+   * Listens for VS Code theme changes and refreshes colors when the theme or visibility changes.
+   *
+   * Re-computes all theme colors when:
+   * - The active color theme changes (user selected a different theme)
+   * - The WebView becomes visible again (may have missed theme changes while hidden)
+   *
+   * @param webviewView - The WebView to refresh with new theme colors
+   * @see requestFreshThemeColors
+   */
   private setupThemeListener(webviewView: vscode.WebviewView): void {
     this.requestFreshThemeColors(webviewView);
 
@@ -53,13 +90,30 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     vscode.window.onDidChangeActiveColorTheme(async e => {
       const newTheme = await SettingsManager.getColorTheme();
       if (this.currentTheme !== newTheme) {
-        console.log('Active color theme changed:', e.kind);
+        console.log('Changed active color theme:', e.kind);
         this.currentTheme = newTheme;
         this.requestFreshThemeColors(webviewView);
       }
     });
   }
 
+  /**
+   * Requests the WebView to compute theme colors and update specific elements.
+   *
+   * Can update:
+   * - All colors across all elements (default, used on theme change)
+   * - Single element colors (used when resetting an element)
+   * - Group colors (used when resetting a group)
+   *
+   * For colors with user customizations, uses those values. For colors without customization,
+   * requests WebView to compute the theme color from VS Code CSS variables.
+   *
+   * @param webviewView - The WebView to send color computation request to
+   * @param setting - Optional: specific element setting to update (for single element reset)
+   * @param groupLabel - Optional: group label to update (for group reset)
+   * @see setupThemeListener
+   * @see themeColors
+   */
   private requestFreshThemeColors(webviewView: vscode.WebviewView, setting?: ElementSetting, groupLabel?: string): void {
     const themeClass = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ? 'vscode-dark'
       : vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Light ? 'vscode-light'
@@ -128,16 +182,39 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  /**
+   * Initializes state management for workspace availability detection.
+   *
+   * Detects whether a workspace is open and automatically switches the configuration
+   * target (Global vs Workspace) accordingly. Updates the WebView with the current state.
+   *
+   * @param webviewView - The WebView to update with workspace availability state
+   * @see refreshWorkspaceAvailability
+   */
   private setupStateManagement(webviewView: vscode.WebviewView): void {
     this.refreshWorkspaceAvailability(webviewView);
   }
 
+  /**
+   * Sets up WebView message handler for extension ↔ WebView communication.
+   *
+   * Routes different message types (color changes, resets, scope switching, etc.)
+   * to appropriate handlers in SettingsManager. Provides error handling with user notifications.
+   *
+   * @param webviewView - The WebView to handle messages from
+   */
   private setupMessageHandler(webviewView: vscode.WebviewView): void {
     webviewView.webview.onDidReceiveMessage(async (msg) => {
       try {
         switch (msg.type) {
           case 'toggleHighlighting':
-            await SettingsManager.setAppSetting('enableHoverHighlight', msg.enabled);
+            try {
+              await SettingsManager.setAppSetting('enableHoverHighlight', msg.enabled);
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err);
+              console.error('Failed to toggle highlighting:', message);
+              vscode.window.showErrorMessage('Failed to save highlight preference');
+            }
             break;
           case 'hover':
             await SettingsManager.onHover(msg.key);
@@ -146,13 +223,31 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             await SettingsManager.onLeave(msg.key);
             break;
           case 'setColor':
-            await SettingsManager.onSetColor(msg.setting, msg.color);
+            try {
+              await SettingsManager.onSetColor(msg.setting, msg.color);
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err);
+              console.error('Failed to set color:', message);
+              vscode.window.showErrorMessage(`Failed to apply color: ${message}`);
+            }
             break;
           case 'setNumber':
-            await SettingsManager.onSetNumber(msg.setting, msg.value);
+            try {
+              await SettingsManager.onSetNumber(msg.setting, msg.value);
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err);
+              console.error('Failed to set number:', message);
+              vscode.window.showErrorMessage(`Failed to apply setting: ${message}`);
+            }
             break;
           case 'setString':
-            await SettingsManager.onSetString(msg.setting, msg.value);
+            try {
+              await SettingsManager.onSetString(msg.setting, msg.value);
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err);
+              console.error('Failed to set string:', message);
+              vscode.window.showErrorMessage(`Failed to apply setting: ${message}`);
+            }
             break;
           case 'setConfigTarget':
             SettingsManager.setConfigTarget(msg.target);
@@ -163,25 +258,45 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             break;
           case 'resetScope':
             this.withConfirmation(`Are you sure you want to reset ${msg.target} settings?`, async () => {
-              SettingsManager.resetScope(msg.target);
-              await SettingsManager.applyEffectiveColors();
-              this.requestFreshThemeColors(webviewView);
+              try {
+                SettingsManager.resetScope(msg.target);
+                await SettingsManager.applyEffectiveColors();
+                this.requestFreshThemeColors(webviewView);
+                vscode.window.showInformationMessage(`${msg.target} settings reset to defaults`);
+              } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                console.error('Failed to reset scope:', message);
+                vscode.window.showErrorMessage(`Failed to reset settings: ${message}`);
+              }
             });
             break;
           case 'resetGroup':
             this.withConfirmation(`Are you sure you want to reset ${msg.label} settings?`, async () => {
-              SettingsManager.resetGroup(msg.label);
-              await SettingsManager.applyEffectiveColors();
-              this.requestFreshThemeColors(webviewView, undefined, msg.label);
+              try {
+                SettingsManager.resetGroup(msg.label);
+                await SettingsManager.applyEffectiveColors();
+                this.requestFreshThemeColors(webviewView, undefined, msg.label);
+                vscode.window.showInformationMessage(`${msg.label} settings reset to defaults`);
+              } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                console.error('Failed to reset group:', message);
+                vscode.window.showErrorMessage(`Failed to reset ${msg.label}: ${message}`);
+              }
             });
             break;
           case 'resetElement':
-            SettingsManager.resetElement(msg.setting);
-            await SettingsManager.applyEffectiveColors();
-            if (msg.setting.type === 'color') {
-              this.requestFreshThemeColors(webviewView, msg.setting);
-            } else {
-              this.refreshElementUI(webviewView, msg.setting);
+            try {
+              SettingsManager.resetElement(msg.setting);
+              await SettingsManager.applyEffectiveColors();
+              if (msg.setting.type === 'color') {
+                this.requestFreshThemeColors(webviewView, msg.setting);
+              } else {
+                this.refreshElementUI(webviewView, msg.setting);
+              }
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err);
+              console.error('Failed to reset element:', message);
+              vscode.window.showErrorMessage(`Failed to reset setting: ${message}`);
             }
             break;
           case 'themeColorsReady':
@@ -197,7 +312,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             console.warn('Unknown message type:', msg.type);
         }
       } catch (err) {
-        console.error('Error handling message:', err);
+        console.error('Failed to handle message:', err);
       }
     });
   }
@@ -209,6 +324,16 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  /**
+   * Refreshes the sidebar UI with multiple new color values.
+   *
+   * Updates the display for a batch of color settings and updates internal color cache.
+   * Wraps updates in a progress notification to inform the user of the refresh operation.
+   *
+   * @param webviewView - The WebView to refresh
+   * @param newColors - Map of color key to hex color value to update
+   * @see refreshElementUI
+   */
   private refreshUI(webviewView: vscode.WebviewView, newColors: Record<string, string>): void {
     vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
@@ -228,8 +353,18 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     });
   }
 
+  /**
+   * Refreshes a single element's UI in the sidebar.
+   *
+   * Regenerates the HTML for a specific setting and sends it to the WebView to be displayed.
+   * Used when a single element's value changes or needs to be reset.
+   *
+   * @param webviewView - The WebView to send the updated element HTML to
+   * @param setting - The element setting that was changed
+   * @see refreshUI
+   * @see getInputHtml
+   */
   private refreshElementUI(webviewView: vscode.WebviewView, setting: ElementSetting): void {
-    //console.log(`Refreshing UI for element: ${setting.section}.${setting.key}`);
     const elementHtml = this.getInputHtml(setting);
     webviewView.webview.postMessage({
       type: 'replaceElement',
@@ -242,31 +377,75 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * Ensures the color value is a valid hex string (6 or 8 digits for RGBA).
+   * Validates and ensures the color value is a valid hex string.
+   *
+   * Accepts both 6-digit (#RRGGBB) and 8-digit (#RRGGBBAA) hex color formats.
+   * Returns empty string for invalid or missing colors (no customization).
+   *
+   * @param value - The color string to validate
+   * @returns Valid hex color string, or empty string if invalid/missing
    */
   private sanitizeHex(value?: string): string {
-    if (!value) return ''; // no customization defined
+    if (!value) {
+      return '';
+    } // no customization defined
     // Accept both 6-digit (#RRGGBB) and 8-digit (#RRGGBBAA) hex colors
     return /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(value) ? value : '';
   }
 
   /**
-   * Gets the theme color for a specific color key.
-   * Converts the key format (e.g., "titleBar.activeBackground") to theme format (e.g., "titleBar-activeBackground").
+   * Retrieves the cached theme color for a specific color key.
+   *
+   * Looks up the color in the internal theme color cache, converting key format
+   * from config format (dot-separated) to theme format (dash-separated).
+   *
+   * @param colorKey - The color key in config format (e.g., "titleBar.activeBackground")
+   * @returns The hex color value if cached, or undefined if not set
+   * @see toThemeFormat
    */
   private getThemeColor(colorKey: string): string | undefined {
     const themeKey = this.toThemeFormat(colorKey);
     return this.themeColors[themeKey];
   }
   
+  /**
+   * Converts a key from theme format (dash-separated) to config format (dot-separated).
+   *
+   * Example: "titleBar-activeBackground" → "titleBar.activeBackground"
+   *
+   * @param key - The key in theme format (dash-separated)
+   * @returns The key in config format (dot-separated)
+   * @see toThemeFormat
+   */
   private toConfigFormat(key: string): string {
     return key.replace(/-/g, '.');
   }
   
+  /**
+   * Converts a key from config format (dot-separated) to theme format (dash-separated).
+   *
+   * Example: "titleBar.activeBackground" → "titleBar-activeBackground"
+   *
+   * @param key - The key in config format (dot-separated)
+   * @returns The key in theme format (dash-separated)
+   * @see toConfigFormat
+   */
   private toThemeFormat(key: string): string {
     return key.replace(/\./g, '-');
   }
 
+  /**
+   * Generates the complete HTML for the sidebar WebView.
+   *
+   * Combines template HTML with dynamically generated element sections, styles, and scripts.
+   * Sets up the layout, theme styling, and initializes script loading.
+   *
+   * @param webview - The VS Code Webview API object
+   * @param elements - Array of element definitions to render
+   * @returns Complete HTML string for the sidebar
+   * @see generateElementHtml
+   * @see loadAndReplaceTemplate
+   */
   private async getHtml(webview: vscode.Webview, elements: ElementDefinition[]): Promise<string> {
     const scriptUri = this.getScriptUri(webview);
     const styleSidebarUri = webview.asWebviewUri(
@@ -277,12 +456,32 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     return this.loadAndReplaceTemplate(webview.cspSource, styleSidebarUri.toString(), itemsHtml, scriptUri.toString());
   }
 
+  /**
+   * Resolves the URI for the sidebar.js script in the WebView context.
+   *
+   * Converts the local file path to a WebView-compatible URI using asWebviewUri.
+   *
+   * @param webview - The VS Code Webview API object
+   * @returns The WebView URI for sidebar.js
+   * @see getHtml
+   */
   private getScriptUri(webview: vscode.Webview): vscode.Uri {
     return webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, 'out', 'webview', 'sidebar.js')
     );
   }
 
+  /**
+   * Generates HTML for an element group (category of settings).
+   *
+   * Creates a collapsible container with header, description, and all settings for the group.
+   * Each setting is rendered using getInputHtml based on its type.
+   *
+   * @param el - The element definition containing group metadata and settings
+   * @param idx - The index of this element in the overall elements array (for HTML data attributes)
+   * @returns HTML string for the element group section
+   * @see getInputHtml
+   */
   private generateElementHtml(el: ElementDefinition, idx: number): string {
     const settingsHtml = el.settings.map(setting => `
       <div class="setting-container">
@@ -312,13 +511,26 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       </div>`;
   }
 
+  /**
+   * Constructs the complete HTML document structure for the sidebar.
+   *
+   * Builds the HTML template with CSP headers, styles, script references, and embeds
+   * the generated element sections and scope control buttons.
+   *
+   * @param cspSource - Content Security Policy source hash from VS Code
+   * @param styleSidebarUri - URI to the sidebar CSS stylesheet
+   * @param itemsHtml - Pre-generated HTML for all element sections
+   * @param scriptUri - URI to the sidebar.js script file
+   * @returns Complete HTML document string
+   * @see getHtml
+   */
   private loadAndReplaceTemplate(cspSource: string, styleSidebarUri: string, itemsHtml: string, scriptUri: string): string {
     const htmlTemplate = `
       <!DOCTYPE html>
       <html lang="en">
         <head>
           <meta charset="utf-8" />
-          <meta http-equiv="Content-Security-Policy" content="img-src https: data:; style-src 'unsafe-inline' ${cspSource};">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data:; style-src 'unsafe-inline' ${cspSource}; script-src ${cspSource};">
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           <link href="${styleSidebarUri}" rel="stylesheet">
           <title>Customize VS Code Appearance</title>
@@ -349,6 +561,19 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     return htmlTemplate;
   }
 
+  /**
+   * Generates the appropriate input HTML for a setting based on its type.
+   *
+   * Routes to specialized methods for color inputs (color picker), number inputs,
+   * select inputs (dropdown), or text inputs based on the setting's type and configuration.
+   *
+   * @param setting - The element setting definition
+   * @returns HTML string for the input control
+   * @see getColorInput
+   * @see getNumberInput
+   * @see getSelectInput
+   * @see getTextInput
+   */
   private getInputHtml(setting: ElementSetting): string {
     switch (setting.type) {
       case 'color':
@@ -362,6 +587,17 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  /**
+   * Generates HTML for a color input control (color picker with opacity slider).
+   *
+   * Creates a color picker input with an optional alpha (opacity) slider.
+   * Uses the current custom color if set, otherwise uses the VS Code theme color.
+   * Supports both 6-digit (#RRGGBB) and 8-digit (#RRGGBBAA) hex color formats.
+   *
+   * @param setting - The color setting definition
+   * @returns HTML string for the color picker control
+   * @see getInputHtml
+   */
   private getColorInput(setting: ElementSetting): string {
     const color = this.sanitizeHex(SettingsManager.getSettingValue(setting.section, setting.key));
     // Use theme color as default if no custom color is set
@@ -413,6 +649,17 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       </div>`;
   }
 
+  /**
+   * Generates HTML for a numeric input control with up/down buttons.
+   *
+   * Creates a number input field with increment/decrement buttons for settings
+   * like font size or line height. Displays the current value or default if not set.
+   * Supports numeric range from 6 to 100 with step of 1.
+   *
+   * @param setting - The number setting definition
+   * @returns HTML string for the number input control
+   * @see getInputHtml
+   */
   private getNumberInput(setting: ElementSetting): string {
     const currentValue = SettingsManager.getSettingValue(setting.section, setting.key);
     const value: number = currentValue ? parseInt(currentValue) || 0 : 0;
@@ -433,6 +680,17 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       </div>`;
   }
 
+  /**
+   * Generates HTML for a select dropdown control (for predefined options).
+   *
+   * Creates a dropdown menu with options defined in the setting.
+   * Uses the current custom value if set, otherwise uses the default option.
+   * Options are capitalized in the dropdown display.
+   *
+   * @param setting - The string setting definition with options array
+   * @returns HTML string for the select dropdown control
+   * @see getInputHtml
+   */
   private getSelectInput(setting: ElementSetting): string {
     const value = SettingsManager.getSettingValue(setting.section, setting.key) || setting.defaultValue || '';
     const options = (setting.options || []).map(opt =>
@@ -450,6 +708,17 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       </div>`;
   }
 
+  /**
+   * Generates HTML for a text input control (for free-form string values).
+   *
+   * Creates a text input field for settings that accept any string value.
+   * Displays the current custom value if set, otherwise uses the default value.
+   * Used for settings like font family or custom CSS values.
+   *
+   * @param setting - The string setting definition without options
+   * @returns HTML string for the text input control
+   * @see getInputHtml
+   */
   private getTextInput(setting: ElementSetting): string {
     const value = SettingsManager.getSettingValue(setting.section, setting.key) || setting.defaultValue || '';
     return `
