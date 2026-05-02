@@ -1,13 +1,18 @@
 {
   "name": "customize-vs-code-appearance",
   "displayName": "Customize VS Code Appearance",
-  "description": "Personalize colors in the Global or Workspace scope for UI elements, editor settings, and layout preferences with live preview. Preview version. Development is in progress.",
+  "description": "Personalize colors in the Global or Workspace/Folder scope for UI elements, editor settings, and layout preferences with live preview.",
   "version": "1.0.20",
   "icon": "media/edit-sparkle128.png",
   "publisher": "AnnaLopatina",
   "author": {
     "name": "Anna Lopatina",
     "email": "annalopatina.dev@outlook.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LopatinaAnna/customize-vs-code-appearance.git"
   },
   "preview": true,
   "galleryBanner.color": {
@@ -30,7 +35,14 @@
     "personalize",
     "ui",
     "editor",
-    "layout"
+    "layout",
+    "settings",
+    "configuration",
+    "styling",
+    "colors",
+    "customization",
+    "visual",
+    "workspace"
   ],
   "activationEvents": [],
   "main": "./out/extension.js",
